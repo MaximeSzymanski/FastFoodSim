@@ -1,7 +1,6 @@
 import random
 
 import simpy
-from pandas.core.apply import ResType
 
 from config import *
 from restaurant import FastFoodRestaurant
@@ -62,6 +61,10 @@ def customer_journey(
 
     # 1. Balking
     if len(restaurant.cashier.queue) >= MAX_QUEUE_LENGTH:
+        stats["balked"].append(1)
+        stats["lost_revenue"].append(order_price)
+        return
+    if restaurant.customers_waiting_for_food >= MAX_ORDER_WAITING_FOR_FOOD:
         stats["balked"].append(1)
         stats["lost_revenue"].append(order_price)
         return

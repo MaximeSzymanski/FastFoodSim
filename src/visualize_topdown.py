@@ -24,6 +24,7 @@ CASHIER_COLOR = (180, 80, 255)  # Purple
 B_COOK_COLOR = (255, 80, 80)  # Red
 F_COOK_COLOR = (255, 160, 50)  # Orange
 IDLE_GRAY = (80, 80, 80)  # Gray for idle employees
+WAITING_FOOD_COLOR = (255, 255, 100)  # Yellow
 
 # Object Colors
 COUNTER_COLOR = (120, 90, 70)  # Wood
@@ -31,25 +32,49 @@ BURGER_COLOR = (139, 69, 19)  # Dark Brown
 FRIES_COLOR = (255, 215, 0)  # Gold
 
 
+def cook_burger_task(env, restaurant):
+    """Background task for a cook to actually make the burger."""
+    with restaurant.burger_cook.request() as req:
+        yield req
+        yield env.timeout(BURGER_MODE)
+        for _ in range(BURGER_BATCH_SIZE):
+            restaurant.burger_shelf.put(FoodItem(env.now))
+
+
+def cook_fries_task(env, restaurant):
+    """Background task for a cook to actually make the fries."""
+    with restaurant.fries_cook.request() as req:
+        yield req
+        yield env.timeout(FRIES_TIME)
+        for _ in range(FRIES_BATCH_SIZE):
+            restaurant.fries_shelf.put(FoodItem(env.now))
+
+
 def optuna_static_manager(env, restaurant):
-    """The static rules to keep the restaurant running."""
+    """The manager now delegates tasks and immediately moves on to enable parallel cooking."""
     while True:
+        # 1. Check Burgers
         if len(restaurant.burger_shelf.items) < TARGET_BURGER_INV:
-            if restaurant.burger_cook.count < restaurant.burger_cook.capacity:
-                with restaurant.burger_cook.request() as req:
-                    yield req
-                    yield env.timeout(BURGER_MODE)
-                    for _ in range(BURGER_BATCH_SIZE):
-                        restaurant.burger_shelf.put(FoodItem(env.now))
+            # Check how many cooks are currently busy OR waiting for a task
+            active_b_tasks = restaurant.burger_cook.count + len(
+                restaurant.burger_cook.queue
+            )
 
+            # If we have an idle cook, assign them a task in the background!
+            if active_b_tasks < restaurant.burger_cook.capacity:
+                env.process(cook_burger_task(env, restaurant))
+
+        # 2. Check Fries
         if len(restaurant.fries_shelf.items) < TARGET_FRIES_INV:
-            if restaurant.fries_cook.count < restaurant.fries_cook.capacity:
-                with restaurant.fries_cook.request() as req:
-                    yield req
-                    yield env.timeout(FRIES_TIME)
-                    for _ in range(FRIES_BATCH_SIZE):
-                        restaurant.fries_shelf.put(FoodItem(env.now))
+            active_f_tasks = restaurant.fries_cook.count + len(
+                restaurant.fries_cook.queue
+            )
 
+            # If we have an idle cook, assign them a task in the background!
+            if active_f_tasks < restaurant.fries_cook.capacity:
+                env.process(cook_fries_task(env, restaurant))
+
+        # Wait just 1 second before scanning the kitchen again
         yield env.timeout(1.0)
 
 
@@ -63,7 +88,7 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
 
         screen.fill(BG_COLOR)
 
-        # Draw the main building floor (surface, color, rectangle coordinates)
+        # Draw the main building floor
         pygame.draw.rect(screen, FLOOR_COLOR, (50, 50, 700, 500), border_radius=10)
 
         # --- DRAW STATIC ARCHITECTURE ---
@@ -81,7 +106,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
         for i in range(restaurant.burger_cook.capacity):
             x, y = 200 + (i * 80), 100
             color = B_COOK_COLOR if i < active_b else IDLE_GRAY
-            # Draw circle requires surface, color, center(x,y), and radius
             pygame.draw.circle(screen, color, (x, y), 18)
             screen.blit(font.render("B", True, TEXT_COLOR), (x - 6, y - 10))
 
@@ -112,14 +136,12 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             screen.blit(font.render("$", True, TEXT_COLOR), (x - 4, y - 10))
 
             # 4. Active Ordering Customers (In front of the counter)
-            # If the cashier is active, draw a customer standing directly at their register!
             if i < active_c:
                 pygame.draw.circle(screen, CUSTOMER_COLOR, (x, 400), 15)
 
         # 5. Customer Line Queue (Lobby area)
         queue_len = len(restaurant.cashier.queue)
         for i in range(queue_len):
-            # Creates a nice wrapping snake-line if the queue gets long
             row = i // 15
             col = i % 15
             x = 120 + (col * 35)
@@ -131,16 +153,23 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
         screen.blit(pickup_text, (600, 320))
 
         waiting_count = restaurant.customers_waiting_for_food
-        for i in range(waiting_count):
-            # Create a grid so they don't overlap if there are a lot of them
+        MAX_VISUAL_PICKUP = 16
+
+        for i in range(min(waiting_count, MAX_VISUAL_PICKUP)):
             row = i // 4
             col = i % 4
             x = 600 + (col * 30)
             y = 360 + (row * 30)
-
-            # Draw them as Yellow circles
-            WAITING_FOOD_COLOR = (255, 255, 100)
             pygame.draw.circle(screen, WAITING_FOOD_COLOR, (x, y), 12)
+
+        # Draw text if the pickup area overflows
+        if waiting_count > MAX_VISUAL_PICKUP:
+            overflow = waiting_count - MAX_VISUAL_PICKUP
+            overflow_text = font.render(
+                f"+ {overflow} more waiting...", True, (255, 100, 100)
+            )
+            screen.blit(overflow_text, (600, 360 + (4 * 30)))
+
         # --- DRAW LIVE FINANCIAL STATS ---
         time_text = font.render(
             f"Simulation Clock: {env.now:.0f}s / {SIM_TIME}s", True, TEXT_COLOR
@@ -164,7 +193,7 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
         pygame.display.flip()
         clock.tick(60)
 
-        # Advance SimPy time! (Decrease this to 0.5 to make it run in slow-motion)
+        # Advance SimPy time!
         yield env.timeout(1.0)
 
 
@@ -176,6 +205,9 @@ if __name__ == "__main__":
     font = pygame.font.SysFont("Arial", 16, bold=True)
 
     env = simpy.Environment()
+
+    # I set this back to 4 Cashiers, 2 Burger Cooks, and 1 Fry Cook to match standard Optuna.
+    # You can change it to 4, 4, 1 if you want a massive kitchen!
     restaurant = FastFoodRestaurant(env, 4, 2, 1)
 
     stats = {
