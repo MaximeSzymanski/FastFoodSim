@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from config import COST_WASTED_BURGER, COST_WASTED_FRIES
+from src.config import COST_WASTED_BURGER, COST_WASTED_FRIES
 
 
 def plot_waste_costs():

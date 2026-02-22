@@ -2,7 +2,8 @@ import random
 
 import simpy
 
-from config import *
+from src.config import *
+from src.sim.restaurant import FastFoodRestaurant
 
 
 # --- 1. The Food Object ---
@@ -11,8 +12,9 @@ class FoodItem:
         self.creation_time = creation_time
 
 
-# --- 2. The Autonomous Cook Processes ---
+# --- 2. The Autonomous Cook Processes (Restored!) ---
 def fry_cook_loop(env, restaurant):
+    """Continuously cooks fries if inventory is below target."""
     while True:
         if len(restaurant.fries_shelf.items) < TARGET_FRIES_INV:
             yield env.timeout(FRIES_TIME)
@@ -23,6 +25,7 @@ def fry_cook_loop(env, restaurant):
 
 
 def burger_cook_loop(env, restaurant):
+    """Continuously cooks burgers if inventory is below target."""
     while True:
         if len(restaurant.burger_shelf.items) < TARGET_BURGER_INV:
             burger_time = random.triangular(BURGER_MIN, BURGER_MAX, BURGER_MODE)
@@ -33,19 +36,43 @@ def burger_cook_loop(env, restaurant):
             yield env.timeout(5.0)
 
 
-# --- 3. Expiration Helper ---
-def grab_food_from_shelf(env, shelf, shelf_life, waste_tracker_list):
+# --- 3. Active Waste Manager ---
+def inventory_manager(env, restaurant, stats):
+    """Continuously checks shelves and throws away expired food immediately."""
     while True:
-        food = yield shelf.get()
-        age = env.now - food.creation_time
-        if age <= shelf_life:
-            return food
-        else:
-            waste_tracker_list.append(1)
+        # Check the shelves every 10 seconds to align with the AI's step time
+        yield env.timeout(10.0)
+
+        # Check Burgers
+        valid_burgers = []
+        for item in restaurant.burger_shelf.items:
+            if env.now - item.creation_time > BURGER_SHELF_LIFE:
+                stats["wasted_burgers"].append(1)
+            else:
+                valid_burgers.append(item)
+        restaurant.burger_shelf.items = valid_burgers
+
+        # Check Fries
+        valid_fries = []
+        for item in restaurant.fries_shelf.items:
+            if env.now - item.creation_time > FRIES_SHELF_LIFE:
+                stats["wasted_fries"].append(1)
+            else:
+                valid_fries.append(item)
+        restaurant.fries_shelf.items = valid_fries
 
 
-# --- 4. The Customer Journey ---
-def customer_journey(env, name, restaurant, stats):
+# --- 4. Expiration Helper (Simplified) ---
+def grab_food_from_shelf(env, shelf):
+    """Simply grabs the food. The inventory_manager handles expiration."""
+    food = yield shelf.get()
+    return food
+
+
+# --- 5. The Customer Journey ---
+def customer_journey(
+    env: simpy.Environment, name: str, restaurant: FastFoodRestaurant, stats
+):
     arrival_time = env.now
 
     # Generate random order
@@ -61,8 +88,12 @@ def customer_journey(env, name, restaurant, stats):
         stats["balked"].append(1)
         stats["lost_revenue"].append(order_price)
         return
+    if restaurant.customers_waiting_for_food >= MAX_ORDER_WAITING_FOR_FOOD:
+        stats["balked"].append(1)
+        stats["lost_revenue"].append(order_price)
+        return
 
-    # 2. Reneging
+    # 2. Reneging (Waiting in line for Cashier)
     with restaurant.cashier.request() as req:
         patience_timer = env.timeout(MAX_WAIT_TOLERANCE)
         results = yield req | patience_timer
@@ -76,30 +107,23 @@ def customer_journey(env, name, restaurant, stats):
         order_time += (num_burgers + num_fries) * 5.0  # Add extra time for large orders
         yield env.timeout(order_time)
 
-    # 3. Dynamic Pickup (Gather all items simultaneously)
+    restaurant.customers_waiting_for_food += 1
+
+    # 3. Dynamic Pickup (Waiting at the pickup counter for food)
     food_tasks = []
     for _ in range(num_burgers):
         food_tasks.append(
-            env.process(
-                grab_food_from_shelf(
-                    env,
-                    restaurant.burger_shelf,
-                    BURGER_SHELF_LIFE,
-                    stats["wasted_burgers"],
-                )
-            )
+            env.process(grab_food_from_shelf(env, restaurant.burger_shelf))
         )
     for _ in range(num_fries):
         food_tasks.append(
-            env.process(
-                grab_food_from_shelf(
-                    env, restaurant.fries_shelf, FRIES_SHELF_LIFE, stats["wasted_fries"]
-                )
-            )
+            env.process(grab_food_from_shelf(env, restaurant.fries_shelf))
         )
 
     if food_tasks:
         yield simpy.events.AllOf(env, food_tasks)
+
+    restaurant.customers_waiting_for_food -= 1
 
     # 4. Success!
     departure_time = env.now
