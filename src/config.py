@@ -1,5 +1,5 @@
 # --- SIMULATION SETTINGS ---
-SIM_TIME = 3600  # Run for 1 hour (in seconds)
+SIM_TIME = 3600 * 24 * 7  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
 ARRIVAL_AVG = 45.0  # Average time between customers
