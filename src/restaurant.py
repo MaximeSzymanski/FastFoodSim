@@ -2,8 +2,12 @@ import simpy
 
 
 class FastFoodRestaurant:
-    def __init__(self, env: simpy.Environment, num_cashiers: int, num_cooks: int):
+    def __init__(self, env, num_cashiers):
         self.env = env
-        # These are the limited resources in your restaurant
-        self.cashier: simpy.Resource = simpy.Resource(env, num_cashiers)
-        self.cook: simpy.Resource = simpy.Resource(env, num_cooks)
+
+        # Human resources
+        self.cashier = simpy.Resource(env, num_cashiers)
+
+        # Physical inventory shelves
+        self.burger_shelf = simpy.Store(env)
+        self.fries_shelf = simpy.Store(env)
