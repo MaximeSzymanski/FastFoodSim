@@ -1,8 +1,8 @@
 # --- SIMULATION SETTINGS ---
-SIM_TIME = 3600  # Run for 1 hour (in seconds)
+SIM_TIME = 3600 * 24  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
-ARRIVAL_AVG = 45.0  # Average time between customers
+ARRIVAL_AVG = 35.0  # Average time between customers
 
 CASHIER_MIN = 20.0
 CASHIER_MAX = 120.0

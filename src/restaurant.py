@@ -13,3 +13,5 @@ class FastFoodRestaurant:
         # Physical inventory shelves
         self.burger_shelf = simpy.Store(env)
         self.fries_shelf = simpy.Store(env)
+
+        self.customers_waiting_for_food = 0

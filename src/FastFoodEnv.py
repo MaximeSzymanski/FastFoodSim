@@ -6,14 +6,15 @@ import simpy
 from gymnasium import spaces
 
 from config import *
-from processes import FoodItem, customer_arrivals
+from processes import FoodItem, customer_arrivals, inventory_manager
 from restaurant import FastFoodRestaurant
 
 
 class FastFoodEnv(gym.Env):
     """
     A Reinforcement Learning environment for our Fast Food Sim.
-    Includes Observation Scaling, Reward Scaling, and Seed Support.
+    Includes Observation Scaling, Reward Scaling, Seed Support,
+    and Enhanced AI "Vision" (Time and Active Cashiers).
     """
 
     def __init__(self):
@@ -30,11 +31,11 @@ class FastFoodEnv(gym.Env):
 
         # --- THE OBSERVATION SPACE ---
         # Normalized inputs are mathematically easier for Neural Networks to process.
-        # [Queue, Burger Inv, Fries Inv, Idle Burger Cooks %, Idle Fries Cooks %]
+        # [Queue, Burger Inv, Fries Inv, Idle Burger %, Idle Fries %, Time %, Busy Cashiers %]
         self.observation_space = spaces.Box(
             low=0.0,
             high=1.0,
-            shape=(5,),
+            shape=(7,),
             dtype=np.float32,
         )
 
@@ -96,7 +97,7 @@ class FastFoodEnv(gym.Env):
 
         # Launch the customer arrival process
         self.env.process(customer_arrivals(self.env, self.restaurant, self.stats))
-
+        self.env.process(inventory_manager(self.env, self.restaurant, self.stats))
         # Reset financial delta trackers
         self.last_revenue = 0
         self.last_waste_cost = 0
@@ -106,8 +107,7 @@ class FastFoodEnv(gym.Env):
 
     def _get_obs(self):
         """
-        Gathers and scales observations to a [0, 1] range.
-
+        Gathers and scales 7 observations to a [0, 1] range.
         """
         # Divide by 'Max Expected' values to keep inputs small for the Neural Network
         queue_len = len(self.restaurant.cashier.queue) / 20.0
@@ -122,8 +122,23 @@ class FastFoodEnv(gym.Env):
             self.num_fries_cooks - self.restaurant.fries_cook.count
         ) / self.num_fries_cooks
 
+        # --- THE NEW OBSERVATIONS ---
+        # 1. Time Percentage (0.0 at start, 1.0 at end of shift)
+        time_pct = self.env.now / SIM_TIME
+
+        # 2. Busy Cashiers Percentage (0.0 if empty, 1.0 if all cashiers are taking orders)
+        busy_cashiers = self.restaurant.cashier.count / self.num_cashiers
+
         obs = np.array(
-            [queue_len, burger_inv, fries_inv, idle_burgers, idle_fries],
+            [
+                queue_len,
+                burger_inv,
+                fries_inv,
+                idle_burgers,
+                idle_fries,
+                time_pct,
+                busy_cashiers,
+            ],
             dtype=np.float32,
         )
         # Ensure we never exceed the Box(0, 1) limits
@@ -154,7 +169,6 @@ class FastFoodEnv(gym.Env):
 
         # --- REWARD SCALING ---
         # Scaling factors stabilize training by keeping rewards in a manageable range.
-        #
         scale_factor = 10.0
         reward = (delta_rev - delta_waste - delta_lost) / scale_factor
 

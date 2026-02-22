@@ -1,33 +1,42 @@
-import os
+import glob
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 
 def plot_learning_curve():
-    log_file = "stats/rl_training_logs.monitor.csv"
+    """Reads all parallel CSV logs and combines them into one chart."""
+    log_files = glob.glob("stats/*.monitor.csv")
 
-    if not os.path.exists(log_file):
-        print(f"Error: {log_file} not found.")
+    if not log_files:
+        print("Error: No .monitor.csv files found in the 'stats' folder.")
         return
 
-    try:
-        # Monitor files have a comment on the first line, pandas handles this well with skiprows
-        df = pd.read_csv(log_file, skiprows=1)
-    except Exception as e:
-        print(f"Could not read log file: {e}")
+    dataframes = []
+    for f in log_files:
+        try:
+            # skiprows=1 skips the JSON metadata header that Monitor adds
+            df = pd.read_csv(f, skiprows=1)
+            dataframes.append(df)
+        except Exception as e:
+            print(f"Could not read {f}: {e}")
+
+    if not dataframes:
+        print("No valid data found in logs.")
         return
 
-    if df.empty:
-        print("Log file is empty! Ensure training completed at least one full episode.")
-        return
+    # Combine all CPU logs and sort them chronologically by wall-clock time ('t')
+    df = pd.concat(dataframes, ignore_index=True)
+    df = df.sort_values("t").reset_index(drop=True)
 
     plt.figure(figsize=(10, 6))
+
+    # Plot the raw data (light blue)
     plt.plot(df.index, df["r"], alpha=0.3, color="#66b3ff", label="Raw Episode Reward")
 
-    if len(df) >= 5:
-        # Use a window relative to the amount of data we actually have
-        window = min(len(df), 20)
+    # Plot the trendline (dark blue)
+    if len(df) >= 50:
+        window = min(len(df), 100)
         df["rolling_reward"] = df["r"].rolling(window=window).mean()
         plt.plot(
             df.index,
@@ -37,9 +46,9 @@ def plot_learning_curve():
             label=f"Trend ({window}-Ep Moving Avg)",
         )
 
-    plt.title("AI Manager Training Progress (Learning Curve)")
-    plt.xlabel("Training Episode (1-Hour Shift)")
-    plt.ylabel("Net Reward ($)")
+    plt.title(f"AI Manager Training Progress ({len(df)} Total Episodes)")
+    plt.xlabel("Training Episode (Chronological across all CPUs)")
+    plt.ylabel("Net Reward (Scaled)")
     plt.legend()
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 

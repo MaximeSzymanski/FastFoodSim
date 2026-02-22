@@ -1,3 +1,4 @@
+import glob
 import os
 
 import gymnasium as gym
@@ -5,56 +6,71 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from FastFoodEnv import FastFoodEnv
 
 
 def mask_fn(env: gym.Env):
-    """Extracts the valid actions from the custom environment."""
-    # We use .unwrapped to get to the FastFoodEnv class specifically
+    """Extracts the valid actions from the unwrapped custom environment."""
     return env.unwrapped.action_masks()
 
 
 def train_kitchen_ai():
-    print("Booting up the Fast Food Environment...")
+    print("Booting up the Vectorized Fast Food Environments...")
     os.makedirs("stats", exist_ok=True)
 
-    # 1. Create base env
-    base_env = FastFoodEnv()
+    # Clear old multiprocess logs so our graph is clean
+    for f in glob.glob("stats/*.monitor.csv"):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 
-    # 2. Wrap with Monitor (Essential for the CSV logs)
-    # Use a absolute or clean path to avoid write issues
-    log_path = "stats/rl_training_logs.monitor.csv"
-    if os.path.exists(log_path):
-        os.remove(log_path)  # Clear old logs for a fresh chart
-    monitored_env = Monitor(base_env, "stats/rl_training_logs")
+    # 1. Setup Parallel Environments (4 CPU Cores)
+    num_cpu = 4
+    env = make_vec_env(
+        FastFoodEnv,
+        n_envs=num_cpu,
+        wrapper_class=ActionMasker,
+        wrapper_kwargs={"action_mask_fn": mask_fn},
+        vec_env_cls=SubprocVecEnv,
+        monitor_dir="stats",  # Saves logs as 0.monitor.csv, 1.monitor.csv, etc.
+    )
 
-    # 3. Wrap with ActionMasker
-    env = ActionMasker(monitored_env, mask_fn)
+    # 2. Initialize MaskablePPO with High Entropy
+    print(f"Initializing AI on {num_cpu} parallel CPU cores...")
+    model = MaskablePPO(
+        "MlpPolicy",
+        env,
+        verbose=0,
+        learning_rate=0.0003,
+        ent_coef=0.05,  # Forces the AI to stay curious!
+    )
 
-    # 4. Initialize MaskablePPO
-    print("Initializing the Deep Reinforcement Learning Agent...")
-    model = MaskablePPO("MlpPolicy", env, verbose=0, learning_rate=0.005)
+    # 3. Train for 1 Million Steps
+    print("Beginning Training (Go grab a coffee, it's blazing fast now!)...")
+    model.learn(total_timesteps=5_000_000, progress_bar=True)
 
-    # 5. Train with Progress Bar
-    print("Beginning Training (Watch the progress bar!)...")
-    model.learn(total_timesteps=500000, progress_bar=True)
-
-    # 6. Save
+    # 4. Save
     model.save("fast_food_manager_ai")
     print("Training complete! AI brain saved.")
 
-    return model, env
+    return model
 
 
-def test_trained_ai(model, env):
+def test_trained_ai(model):
     """Watch the trained AI manage a single 1-hour shift."""
     print("\n" + "=" * 40)
     print("🍔 RUNNING A TEST SHIFT WITH THE TRAINED AI 🍔")
     print("=" * 40)
 
-    obs, info = env.reset()
+    # We create a single standard environment just for the visual test
+    test_env = FastFoodEnv()
+    env = ActionMasker(test_env, mask_fn)
+
+    obs, info = env.reset(seed=42)
     terminated = False
     total_reward = 0
 
@@ -65,35 +81,28 @@ def test_trained_ai(model, env):
         3: "Ordered BOTH",
     }
 
-    # Access the base env class once for cleaner code
     inner_env = env.unwrapped
 
     while not terminated:
-        # Get masks directly from the unwrapped environment
         action_masks = inner_env.action_masks()
-
-        # Predict
         action, _states = model.predict(
             obs, action_masks=action_masks, deterministic=True
         )
         action = int(action)
 
-        # Step
         obs, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
 
-        # Print logic
         if action != 0:
-            # obs[0] is Queue Length based on our FastFoodEnv observation space
-            queue_len = obs[0]
+            queue_len = obs[0] * 20.0  # Un-scale for printing
+            time_passed = obs[5] * 3600  # Un-scale for printing
             print(
-                f"[Time: {inner_env.env.now:.0f}s] Queue: {queue_len:.0f} | AI Decision: {action_meanings[action]}"
+                f"[Time: {time_passed:.0f}s] Queue: {queue_len:.0f} | AI Decision: {action_meanings[action]}"
             )
 
     print("=" * 40)
-    print(f"Shift Complete! Total Net Reward: ${total_reward:.2f}")
+    print(f"Shift Complete! Total Net Reward (Scaled): {total_reward:.2f}")
 
-    # Access stats safely from the unwrapped class
     stats = inner_env.stats
     print(f"Customers Served: {len(stats['wait_times'])}")
     print(f"Lost Customers: {len(stats['balked']) + len(stats['reneged'])}")
@@ -103,29 +112,35 @@ def test_trained_ai(model, env):
 
 
 def plot_learning_curve():
-    log_file = "stats/rl_training_logs.monitor.csv"
+    """Reads all parallel CSV logs and combines them into one chart."""
+    log_files = glob.glob("stats/*.monitor.csv")
 
-    if not os.path.exists(log_file):
-        print(f"Error: {log_file} not found.")
+    if not log_files:
+        print("Error: No .monitor.csv files found in the 'stats' folder.")
         return
 
-    try:
-        # Monitor files have a comment on the first line, pandas handles this well with skiprows
-        df = pd.read_csv(log_file, skiprows=1)
-    except Exception as e:
-        print(f"Could not read log file: {e}")
+    dataframes = []
+    for f in log_files:
+        try:
+            # skiprows=1 skips the JSON metadata header that Monitor adds
+            df = pd.read_csv(f, skiprows=1)
+            dataframes.append(df)
+        except Exception as e:
+            print(f"Could not read {f}: {e}")
+
+    if not dataframes:
+        print("No valid data found in logs.")
         return
 
-    if df.empty:
-        print("Log file is empty! Ensure training completed at least one full episode.")
-        return
+    # Combine all CPU logs and sort them chronologically by wall-clock time ('t')
+    df = pd.concat(dataframes, ignore_index=True)
+    df = df.sort_values("t").reset_index(drop=True)
 
     plt.figure(figsize=(10, 6))
     plt.plot(df.index, df["r"], alpha=0.3, color="#66b3ff", label="Raw Episode Reward")
 
-    if len(df) >= 5:
-        # Use a window relative to the amount of data we actually have
-        window = min(len(df), 20)
+    if len(df) >= 50:
+        window = min(len(df), 100)
         df["rolling_reward"] = df["r"].rolling(window=window).mean()
         plt.plot(
             df.index,
@@ -135,9 +150,9 @@ def plot_learning_curve():
             label=f"Trend ({window}-Ep Moving Avg)",
         )
 
-    plt.title("AI Manager Training Progress (Learning Curve)")
-    plt.xlabel("Training Episode (1-Hour Shift)")
-    plt.ylabel("Net Reward ($)")
+    plt.title(f"AI Manager Training Progress ({len(df)} Total Episodes)")
+    plt.xlabel("Training Episode (Chronological across all CPUs)")
+    plt.ylabel("Net Reward (Scaled)")
     plt.legend()
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
@@ -147,11 +162,11 @@ def plot_learning_curve():
 
 
 if __name__ == "__main__":
-    # 1. Train
-    trained_model, test_env = train_kitchen_ai()
+    # 1. Train the model using all CPU cores
+    trained_model = train_kitchen_ai()
 
-    # 2. Plot
+    # 2. Generate the combined learning curve
     plot_learning_curve()
 
-    # 3. Test
-    test_trained_ai(trained_model, test_env)
+    # 3. Test the final brain on a single shift
+    test_trained_ai(trained_model)
