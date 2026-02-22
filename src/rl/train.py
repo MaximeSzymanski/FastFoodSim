@@ -40,7 +40,7 @@ def train_kitchen_ai():
     )
 
     print("Beginning Training...")
-    model.learn(total_timesteps=5_000_000, progress_bar=True)
+    model.learn(total_timesteps=100_000, progress_bar=True)
 
     # Save to the new models folder
     model.save("models/fast_food_manager_ai")

@@ -4,9 +4,15 @@ import statistics
 import optuna
 import simpy
 
-import config
-from processes import burger_cook_loop, customer_arrivals, fry_cook_loop
-from restaurant import FastFoodRestaurant
+# --- UPDATED IMPORTS ---
+from src import config
+from src.sim.processes import (
+    burger_cook_loop,
+    customer_arrivals,
+    fry_cook_loop,
+    inventory_manager,  # Added this so waste gets tracked!
+)
+from src.sim.restaurant import FastFoodRestaurant
 
 # --- OPTIMIZER SETTINGS ---
 N_SEEDS = (
@@ -33,12 +39,24 @@ def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, n_seeds):
             "lost_revenue": [],
         }
 
-        restaurant = FastFoodRestaurant(env, cashiers)
+        # UPDATED: Pass all staff counts to the restaurant
+        restaurant = FastFoodRestaurant(
+            env,
+            num_cashiers=cashiers,
+            num_burger_cooks=burger_cooks,
+            num_fries_cooks=fries_cooks,
+        )
+
+        # Start all the background processes
         for _ in range(burger_cooks):
             env.process(burger_cook_loop(env, restaurant))
         for _ in range(fries_cooks):
             env.process(fry_cook_loop(env, restaurant))
+
         env.process(customer_arrivals(env, restaurant, stats))
+
+        # Start the inventory manager so waste is actually calculated!
+        env.process(inventory_manager(env, restaurant, stats))
 
         env.run(until=config.SIM_TIME)
 

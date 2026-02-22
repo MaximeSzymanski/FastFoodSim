@@ -2,8 +2,8 @@ import random
 
 import simpy
 
-from config import *
-from sim.restaurant import FastFoodRestaurant
+from src.config import *
+from src.sim.restaurant import FastFoodRestaurant
 
 
 # --- 1. The Food Object ---
@@ -12,7 +12,31 @@ class FoodItem:
         self.creation_time = creation_time
 
 
-# --- NEW: Active Waste Manager ---
+# --- 2. The Autonomous Cook Processes (Restored!) ---
+def fry_cook_loop(env, restaurant):
+    """Continuously cooks fries if inventory is below target."""
+    while True:
+        if len(restaurant.fries_shelf.items) < TARGET_FRIES_INV:
+            yield env.timeout(FRIES_TIME)
+            for _ in range(FRIES_BATCH_SIZE):
+                restaurant.fries_shelf.put(FoodItem(env.now))
+        else:
+            yield env.timeout(5.0)
+
+
+def burger_cook_loop(env, restaurant):
+    """Continuously cooks burgers if inventory is below target."""
+    while True:
+        if len(restaurant.burger_shelf.items) < TARGET_BURGER_INV:
+            burger_time = random.triangular(BURGER_MIN, BURGER_MAX, BURGER_MODE)
+            yield env.timeout(burger_time)
+            for _ in range(BURGER_BATCH_SIZE):
+                restaurant.burger_shelf.put(FoodItem(env.now))
+        else:
+            yield env.timeout(5.0)
+
+
+# --- 3. Active Waste Manager ---
 def inventory_manager(env, restaurant, stats):
     """Continuously checks shelves and throws away expired food immediately."""
     while True:
@@ -38,14 +62,14 @@ def inventory_manager(env, restaurant, stats):
         restaurant.fries_shelf.items = valid_fries
 
 
-# --- 3. Expiration Helper (Simplified) ---
+# --- 4. Expiration Helper (Simplified) ---
 def grab_food_from_shelf(env, shelf):
     """Simply grabs the food. The inventory_manager handles expiration."""
     food = yield shelf.get()
     return food
 
 
-# --- 4. The Customer Journey ---
+# --- 5. The Customer Journey ---
 def customer_journey(
     env: simpy.Environment, name: str, restaurant: FastFoodRestaurant, stats
 ):
@@ -84,6 +108,7 @@ def customer_journey(
         yield env.timeout(order_time)
 
     restaurant.customers_waiting_for_food += 1
+
     # 3. Dynamic Pickup (Waiting at the pickup counter for food)
     food_tasks = []
     for _ in range(num_burgers):
@@ -99,6 +124,7 @@ def customer_journey(
         yield simpy.events.AllOf(env, food_tasks)
 
     restaurant.customers_waiting_for_food -= 1
+
     # 4. Success!
     departure_time = env.now
     stats["wait_times"].append(departure_time - arrival_time)

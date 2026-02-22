@@ -9,9 +9,9 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame
 import simpy
 
-from config import *
-from sim.processes import FoodItem, customer_arrivals, inventory_manager
-from sim.restaurant import FastFoodRestaurant
+from src.config import *
+from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
+from src.sim.restaurant import FastFoodRestaurant
 
 # --- COLORS (RGB Tuples) ---
 BG_COLOR = (30, 30, 35)  # Dark background
