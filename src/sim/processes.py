@@ -3,7 +3,7 @@ import random
 import simpy
 
 from config import *
-from restaurant import FastFoodRestaurant
+from sim.restaurant import FastFoodRestaurant
 
 
 # --- 1. The Food Object ---

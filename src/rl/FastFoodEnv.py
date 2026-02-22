@@ -5,9 +5,9 @@ import numpy as np
 import simpy
 from gymnasium import spaces
 
-from config import *
-from processes import FoodItem, customer_arrivals, inventory_manager
-from restaurant import FastFoodRestaurant
+from src.config import *
+from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
+from src.sim.restaurant import FastFoodRestaurant
 
 
 class FastFoodEnv(gym.Env):

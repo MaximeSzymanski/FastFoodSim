@@ -10,8 +10,8 @@ import pygame
 import simpy
 
 from config import *
-from processes import FoodItem, customer_arrivals, inventory_manager
-from restaurant import FastFoodRestaurant
+from sim.processes import FoodItem, customer_arrivals, inventory_manager
+from sim.restaurant import FastFoodRestaurant
 
 # --- COLORS (RGB Tuples) ---
 BG_COLOR = (30, 30, 35)  # Dark background
@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
     # I set this back to 4 Cashiers, 2 Burger Cooks, and 1 Fry Cook to match standard Optuna.
     # You can change it to 4, 4, 1 if you want a massive kitchen!
-    restaurant = FastFoodRestaurant(env, 4, 2, 1)
+    restaurant = FastFoodRestaurant(env, 4, 4, 1)
 
     stats = {
         "wait_times": [],
