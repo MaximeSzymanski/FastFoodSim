@@ -55,3 +55,30 @@ def _get_obs(self):
     ])
     return np.clip(obs, 0.0, 1.0)
 ```
+
+## 🛠 Usage & Testing
+
+### Installation
+Ensure you are using a virtual environment (Conda or venv) with Python 3.12+.
+```bash
+pip install simpy optuna gymnasium numpy pytest
+```
+
+### Running Tests
+
+The project includes a robust suite of 26 tests. To ensure the simulation logic and RL environment are functioning correctly, run:
+```bash
+ python -m pytest tests/
+```
+
+### Staffing Optimization
+To run the Optuna study and find the most profitable number of cashiers and cooks for your restaurant:
+```bash
+  python -m src.optimization.optimize
+```
+
+### AI Training
+To start training the Reinforcement Learning agent using the Gymnasium environment:
+```bash
+  python -m src.rl.train
+```
