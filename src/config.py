@@ -1,5 +1,5 @@
 # --- SIMULATION SETTINGS ---
-SIM_TIME = 3600 * 24 * 7  # Run for 1 hour (in seconds)
+SIM_TIME = 3600  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
 ARRIVAL_AVG = 45.0  # Average time between customers
@@ -18,7 +18,7 @@ FRIES_TIME = 120.0
 FRIES_BATCH_SIZE = 4  # A basket makes 4 portions of fries at once
 BURGER_BATCH_SIZE = 1  # Cooks still make 1 burger at a time
 
-TARGET_FRIES_INV = 8  # Stop frying if there are 8 portions on the shelf
+TARGET_FRIES_INV = 14  # Stop frying if there are 8 portions on the shelf
 TARGET_BURGER_INV = 5  # Stop grilling if there are 5 burgers on the shelf
 
 FRIES_SHELF_LIFE = 300.0  # Throw away fries after 5 minutes (300s)
