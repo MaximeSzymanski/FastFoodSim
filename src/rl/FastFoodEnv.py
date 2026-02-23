@@ -1,12 +1,10 @@
 import os
+import random
 import sys
 import warnings
 
-# Hide the Pygame welcome message
 warnings.filterwarnings("ignore", category=UserWarning, module="pygame")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
-
-import random
 
 import gymnasium as gym
 import numpy as np
@@ -18,15 +16,14 @@ from src.config import *
 from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
 from src.sim.restaurant import FastFoodRestaurant
 
-# --- MODERNIZED VISUALIZER COLORS ---
 BG_COLOR = (24, 24, 28)
 FLOOR_COLOR = (40, 42, 48)
 TEXT_COLOR = (245, 245, 245)
 CUSTOMER_COLOR = (52, 152, 219)
 CASHIER_COLOR = (155, 89, 182)
-B_COOK_COLOR = (231, 76, 60)  # Red
-F_COOK_COLOR = (241, 196, 15)  # Yellow
-I_COOK_COLOR = (26, 188, 156)  # Mint/Turquoise for Ice Cream
+B_COOK_COLOR = (231, 76, 60)
+F_COOK_COLOR = (241, 196, 15)
+I_COOK_COLOR = (26, 188, 156)
 IDLE_GRAY = (70, 75, 80)
 WAITING_FOOD_COLOR = (46, 204, 113)
 COUNTER_COLOR = (139, 90, 43)
@@ -35,14 +32,26 @@ UI_BAR_COLOR = (15, 15, 18)
 
 
 class FastFoodEnv(gym.Env):
-    """
-    A Reinforcement Learning environment for our Fast Food Sim.
-    Now uses pure financial logic, reputation penalties, and service bonuses!
+    """A Reinforcement Learning environment for a fast-food restaurant simulation.
+
+    This environment challenges an AI agent to manage inventory and cooking tasks
+    across multiple stations (Burgers, Fries, Ice Cream) while balancing food waste
+    costs against customer wait times and lost revenue.
+
+    Attributes:
+        render_mode (str): The mode used for rendering ('human' or 'rgb_array').
+        action_space (spaces.MultiDiscrete): The available actions for the agent.
+        observation_space (spaces.Box): The observable state of the environment.
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
 
     def __init__(self, render_mode=None):
+        """Initializes the environment, staffing configurations, and spaces.
+
+        Args:
+            render_mode (str, optional): The visual rendering mode. Defaults to None.
+        """
         super(FastFoodEnv, self).__init__()
 
         self.render_mode = render_mode
@@ -51,17 +60,13 @@ class FastFoodEnv(gym.Env):
         self.font = None
         self.title_font = None
 
-        # Staffing Layout
         self.num_cashiers = 5
         self.num_burger_cooks = 4
         self.num_fries_cooks = 3
         self.num_ice_cream_cooks = 2
 
-        # --- MODULAR ACTION SPACE ---
         self.action_space = spaces.MultiDiscrete([2, 2, 2])
 
-        # --- SCALABLE OBSERVATION SPACE ---
-        # 12 Inputs: [Queue, Time, Busy Cashiers, Inv B/F/I, Idle B/F/I, PENDING B/F/I]
         self.observation_space = spaces.Box(
             low=0.0,
             high=1.0,
@@ -70,6 +75,11 @@ class FastFoodEnv(gym.Env):
         )
 
     def action_masks(self):
+        """Generates a boolean mask indicating which actions are currently valid.
+
+        Returns:
+            np.ndarray: A 1D boolean array mapping to the action space choices.
+        """
         idle_b = self.num_burger_cooks - self.restaurant.burger_cook.count
         idle_f = self.num_fries_cooks - self.restaurant.fries_cook.count
         idle_i = self.num_ice_cream_cooks - self.restaurant.ice_cream_cook.count
@@ -84,6 +94,11 @@ class FastFoodEnv(gym.Env):
         )
 
     def rl_cook_burger(self):
+        """SimPy process that requests a cook and produces a batch of burgers.
+
+        Yields:
+            simpy.events.Timeout: The time delay to finish cooking the burgers.
+        """
         with self.restaurant.burger_cook.request() as req:
             yield req
             yield self.env.timeout(
@@ -93,6 +108,11 @@ class FastFoodEnv(gym.Env):
                 self.restaurant.burger_shelf.put(FoodItem(self.env.now))
 
     def rl_cook_fries(self):
+        """SimPy process that requests a cook and produces a batch of fries.
+
+        Yields:
+            simpy.events.Timeout: The time delay to finish cooking the fries.
+        """
         with self.restaurant.fries_cook.request() as req:
             yield req
             yield self.env.timeout(FRIES_TIME)
@@ -100,6 +120,11 @@ class FastFoodEnv(gym.Env):
                 self.restaurant.fries_shelf.put(FoodItem(self.env.now))
 
     def rl_cook_ice_cream(self):
+        """SimPy process that requests a cook and produces a batch of ice cream.
+
+        Yields:
+            simpy.events.Timeout: The time delay to finish pouring the ice cream.
+        """
         with self.restaurant.ice_cream_cook.request() as req:
             yield req
             yield self.env.timeout(ICE_CREAM_TIME)
@@ -107,6 +132,15 @@ class FastFoodEnv(gym.Env):
                 self.restaurant.ice_cream_shelf.put(FoodItem(self.env.now))
 
     def reset(self, seed=None, options=None):
+        """Resets the environment to its initial state for a new episode.
+
+        Args:
+            seed (int, optional): Random seed for reproducibility. Defaults to None.
+            options (dict, optional): Additional options for resetting. Defaults to None.
+
+        Returns:
+            tuple: A tuple containing the initial observation array and an info dict.
+        """
         super().reset(seed=seed)
         if seed is not None:
             random.seed(seed)
@@ -135,26 +169,29 @@ class FastFoodEnv(gym.Env):
         self.env.process(customer_arrivals(self.env, self.restaurant, self.stats))
         self.env.process(inventory_manager(self.env, self.restaurant, self.stats))
 
-        # Reward tracking states
         self.last_revenue = 0
         self.last_waste_cost = 0
         self.last_lost_revenue = 0
-        self.last_walkouts = 0  # NEW: For the Stick
-        self.last_served = 0  # NEW: For the Carrot
+        self.last_walkouts = 0
+        self.last_served = 0
 
         return self._get_obs(), {}
 
     def _get_obs(self):
+        """Constructs the current state observation array for the AI agent.
+
+        Returns:
+            np.ndarray: A normalized array representing queues, time, cashiers,
+                inventories, idle staff, and pending orders.
+        """
         queue_len = len(self.restaurant.cashier.queue) / 20.0
         time_pct = self.env.now / SIM_TIME
         busy_cashiers = self.restaurant.cashier.count / self.num_cashiers
 
-        # Inventories
         burger_inv = len(self.restaurant.burger_shelf.items) / 30.0
         fries_inv = len(self.restaurant.fries_shelf.items) / 30.0
         ice_cream_inv = len(self.restaurant.ice_cream_shelf.items) / 30.0
 
-        # Idle Staff
         idle_b = (
             self.num_burger_cooks - self.restaurant.burger_cook.count
         ) / self.num_burger_cooks
@@ -165,7 +202,6 @@ class FastFoodEnv(gym.Env):
             self.num_ice_cream_cooks - self.restaurant.ice_cream_cook.count
         ) / self.num_ice_cream_cooks
 
-        # Pending Orders (Scaled by 30)
         pending_b = self.restaurant.pending_burgers / 30.0
         pending_f = self.restaurant.pending_fries / 30.0
         pending_i = self.restaurant.pending_ice_cream / 30.0
@@ -190,6 +226,15 @@ class FastFoodEnv(gym.Env):
         return np.clip(obs, 0.0, 1.0)
 
     def step(self, action):
+        """Advances the simulation by one time step based on the agent's action.
+
+        Args:
+            action (list): A multi-discrete action array dictating cooking commands.
+
+        Returns:
+            tuple: A tuple containing the new observation, the calculated reward,
+                the terminated flag, the truncated flag, and an info dict.
+        """
         if action[0] == 1:
             self.env.process(self.rl_cook_burger())
         if action[1] == 1:
@@ -199,7 +244,6 @@ class FastFoodEnv(gym.Env):
 
         self.env.run(until=self.env.now + 10)
 
-        # 1. Fetch current totals
         current_revenue = sum(self.stats["captured_revenue"])
         current_waste = (
             (len(self.stats["wasted_burgers"]) * COST_WASTED_BURGER)
@@ -210,28 +254,18 @@ class FastFoodEnv(gym.Env):
         current_walkouts = len(self.stats["balked"]) + len(self.stats["reneged"])
         current_served = len(self.stats["captured_revenue"])
 
-        # 2. Calculate deltas (what happened in the last 10 seconds)
         delta_rev = current_revenue - self.last_revenue
         delta_waste = current_waste - self.last_waste_cost
         delta_lost = current_lost - self.last_lost_revenue
         delta_walkouts = current_walkouts - self.last_walkouts
         delta_served = current_served - self.last_served
 
-        # 3. Base Financial Reward
         financial_reward = (delta_rev - delta_waste - delta_lost) / 10.0
-
-        # 4. FIX 1: The Stick (Reputation Penalty)
-        # Punish doing nothing. Walk-outs now carry a massive flat penalty beyond just lost revenue.
         reputation_penalty = delta_walkouts * 5.0
-
-        # 5. FIX 2: The Carrot (Service Bonus)
-        # Reward taking action. Give a small flat bonus for every successfully completed order.
         served_bonus = delta_served * 2.0
 
-        # Grand Total Calculation (Dense Shaping Removed)
         total_reward = financial_reward - reputation_penalty + served_bonus
 
-        # Update trackers
         self.last_revenue = current_revenue
         self.last_waste_cost = current_waste
         self.last_lost_revenue = current_lost
@@ -247,6 +281,12 @@ class FastFoodEnv(gym.Env):
         return self._get_obs(), float(total_reward), terminated, truncated, {}
 
     def render(self):
+        """Renders the current state of the restaurant environment using Pygame.
+
+        Returns:
+            np.ndarray or None: An RGB array of the current frame if render_mode
+                is 'rgb_array', otherwise None.
+        """
         if self.render_mode not in ["human", "rgb_array"]:
             return
 
@@ -265,7 +305,6 @@ class FastFoodEnv(gym.Env):
 
         self.screen.fill(BG_COLOR)
 
-        # --- 1. DYNAMIC ARCHITECTURE ---
         b_table_w = max(150, self.num_burger_cooks * 70)
         f_table_w = max(150, self.num_fries_cooks * 70)
         i_table_w = max(150, self.num_ice_cream_cooks * 70)
@@ -285,7 +324,6 @@ class FastFoodEnv(gym.Env):
             border_radius=5,
         )
 
-        # Prep Tables
         pygame.draw.rect(
             self.screen, TABLE_COLOR, (b_table_x, 180, b_table_w, 50), border_radius=8
         )
@@ -309,7 +347,6 @@ class FastFoodEnv(gym.Env):
             (i_table_x + 10, 215),
         )
 
-        # --- 2. DRAW COOKS ---
         active_b = self.restaurant.burger_cook.count
         for i in range(self.num_burger_cooks):
             x = b_table_x + 35 + (i * 70)
@@ -334,7 +371,6 @@ class FastFoodEnv(gym.Env):
             pygame.draw.circle(self.screen, color, (x, 130), 17)
             self.screen.blit(self.font.render("I", True, TEXT_COLOR), (x - 4, 120))
 
-        # --- 3. DYNAMIC INVENTORY GRID ---
         for i in range(len(self.restaurant.burger_shelf.items)):
             max_cols = b_table_w // 25
             row, col = i // max_cols, i % max_cols
@@ -368,7 +404,6 @@ class FastFoodEnv(gym.Env):
             )
             pygame.draw.circle(self.screen, (255, 250, 240), (ix + 6, iy + 4), 6)
 
-        # --- 4. CASHIERS & CUSTOMERS ---
         active_c = self.restaurant.cashier.count
         c_spacing = total_counter_width // max(1, self.num_cashiers)
 
@@ -418,12 +453,8 @@ class FastFoodEnv(gym.Env):
                 (pickup_x, 390 + (5 * 35)),
             )
 
-        # --- 5. EXPANDED UI DASHBOARD ---
-        pygame.draw.rect(
-            self.screen, UI_BAR_COLOR, (0, 0, 1200, 70)
-        )  # Taller bar for two rows
+        pygame.draw.rect(self.screen, UI_BAR_COLOR, (0, 0, 1200, 70))
 
-        # Top Row: Standard Telemetry
         self.screen.blit(
             self.font.render(
                 f"CLOCK: {self.env.now:.0f}s / {SIM_TIME}s", True, TEXT_COLOR
@@ -457,7 +488,6 @@ class FastFoodEnv(gym.Env):
             (750, 10),
         )
 
-        # Bottom Row: Pending Orders Vision
         pending_text = (
             f"PENDING TICKETS ->  "
             f"BURGERS: {self.restaurant.pending_burgers}  |  "
@@ -465,7 +495,6 @@ class FastFoodEnv(gym.Env):
             f"ICE CREAM: {self.restaurant.pending_ice_cream}"
         )
 
-        # Color it red if things are getting crazy (e.g. > 10 burgers waiting)
         warning_color = (
             (231, 76, 60) if self.restaurant.pending_burgers > 10 else (52, 152, 219)
         )
@@ -478,6 +507,7 @@ class FastFoodEnv(gym.Env):
             return np.transpose(pygame.surfarray.array3d(self.screen), axes=(1, 0, 2))
 
     def close(self):
+        """Safely closes the Pygame window and cleans up environment resources."""
         if self.screen is not None:
             pygame.quit()
             self.screen = None

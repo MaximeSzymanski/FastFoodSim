@@ -9,21 +9,43 @@ from src.rl.FastFoodEnv import FastFoodEnv
 
 
 class FlattenActionWrapper(gym.ActionWrapper):
-    """Tricks DQN into controlling a MultiDiscrete environment using a single Discrete integer (0-7)."""
+    """A wrapper that flattens a MultiDiscrete action space into a single Discrete space.
+
+    This allows algorithms that strictly require a 1D Discrete action space, such as DQN,
+    to operate within an environment originally designed with MultiDiscrete actions.
+
+    Args:
+        env (gym.Env): The environment to wrap.
+    """
 
     def __init__(self, env):
+        """Initializes the wrapper and overwrites the action space to Discrete(8)."""
         super().__init__(env)
         self.action_space = gym.spaces.Discrete(8)
 
     def action(self, act):
-        # Converts integer 0-7 into a binary array [Burger, Fries, Ice Cream]
+        """Translates a single discrete integer into a binary list for the base environment.
+
+        Args:
+            act (int): The discrete action integer ranging from 0 to 7.
+
+        Returns:
+            list: A binary list representing the cooking commands for the burger,
+                fries, and ice cream stations respectively.
+        """
         return [act // 4, (act // 2) % 2, act % 2]
 
 
 def make_env():
+    """Creates a callable that initializes the environment for DQN training.
+
+    Returns:
+        callable: A function that returns a wrapped and monitored FastFoodEnv instance.
+    """
+
     def _init():
         env = FastFoodEnv()
-        env = FlattenActionWrapper(env)  # Apply our custom DQN fix
+        env = FlattenActionWrapper(env)
         env = Monitor(env)
         return env
 
@@ -38,10 +60,8 @@ if __name__ == "__main__":
     os.makedirs(models_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-    # DQN relies heavily on Replay Buffers and prefers DummyVecEnv over SubprocVecEnv
     env = DummyVecEnv([make_env()])
 
-    # Build the DQN Agent
     model = DQN(
         "MlpPolicy",
         env,
@@ -53,7 +73,7 @@ if __name__ == "__main__":
     )
 
     total_timesteps = 500_000
-    print(f"Beginning DQN training. Open TensorBoard to watch progress!")
+    print("Beginning DQN training. Open TensorBoard to watch progress.")
 
     model.learn(
         total_timesteps=total_timesteps,
@@ -63,6 +83,6 @@ if __name__ == "__main__":
 
     model_path = f"{models_dir}/fast_food_manager_dqn"
     model.save(model_path)
-    print(f"Training Complete! Model saved successfully to {model_path}.zip")
+    print(f"Training Complete. Model saved successfully to {model_path}.zip")
 
     env.close()

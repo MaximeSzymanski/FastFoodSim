@@ -6,15 +6,27 @@ from src.config import *
 from src.sim.restaurant import FastFoodRestaurant
 
 
-# --- 1. The Food Object ---
 class FoodItem:
+    """Represents a food item created in the simulation.
+
+    Args:
+        creation_time (float): The exact simulation time the food item was created.
+    """
+
     def __init__(self, creation_time):
         self.creation_time = creation_time
 
 
-# --- 2. The Autonomous Cook Processes ---
 def fry_cook_loop(env, restaurant):
-    """Continuously cooks fries if inventory is below target."""
+    """Continuously manages the fry cooking process to maintain target inventory.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant instance containing the fry shelf.
+
+    Yields:
+        simpy.events.Timeout: The time delay required to cook the fries or wait.
+    """
     while True:
         if len(restaurant.fries_shelf.items) < TARGET_FRIES_INV:
             yield env.timeout(FRIES_TIME)
@@ -25,7 +37,15 @@ def fry_cook_loop(env, restaurant):
 
 
 def burger_cook_loop(env, restaurant):
-    """Continuously cooks burgers if inventory is below target."""
+    """Continuously manages the burger cooking process to maintain target inventory.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant instance containing the burger shelf.
+
+    Yields:
+        simpy.events.Timeout: The time delay required to cook the burgers or wait.
+    """
     while True:
         if len(restaurant.burger_shelf.items) < TARGET_BURGER_INV:
             burger_time = random.triangular(BURGER_MIN, BURGER_MAX, BURGER_MODE)
@@ -37,7 +57,15 @@ def burger_cook_loop(env, restaurant):
 
 
 def ice_cream_cook_loop(env, restaurant):
-    """Continuously cooks ice cream if inventory is below target."""
+    """Continuously manages the ice cream pouring process to maintain target inventory.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant instance containing the ice cream shelf.
+
+    Yields:
+        simpy.events.Timeout: The time delay required to pour the ice cream or wait.
+    """
     while True:
         if len(restaurant.ice_cream_shelf.items) < TARGET_ICE_CREAM_INV:
             yield env.timeout(ICE_CREAM_TIME)
@@ -47,14 +75,20 @@ def ice_cream_cook_loop(env, restaurant):
             yield env.timeout(5.0)
 
 
-# --- 3. Active Waste Manager ---
 def inventory_manager(env, restaurant, stats):
-    """Continuously checks shelves and throws away expired food immediately."""
+    """Periodically checks food shelves and discards expired items.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant instance containing the food shelves.
+        stats (dict): The dictionary tracking simulation statistics, including waste.
+
+    Yields:
+        simpy.events.Timeout: The time interval between inventory checks.
+    """
     while True:
-        # Check the shelves every 10 seconds to align with the AI's step time
         yield env.timeout(10.0)
 
-        # Check Burgers
         valid_burgers = []
         for item in restaurant.burger_shelf.items:
             if env.now - item.creation_time > BURGER_SHELF_LIFE:
@@ -63,7 +97,6 @@ def inventory_manager(env, restaurant, stats):
                 valid_burgers.append(item)
         restaurant.burger_shelf.items = valid_burgers
 
-        # Check Fries
         valid_fries = []
         for item in restaurant.fries_shelf.items:
             if env.now - item.creation_time > FRIES_SHELF_LIFE:
@@ -72,7 +105,6 @@ def inventory_manager(env, restaurant, stats):
                 valid_fries.append(item)
         restaurant.fries_shelf.items = valid_fries
 
-        # Check Ice Cream
         valid_ice_cream = []
         for item in restaurant.ice_cream_shelf.items:
             if env.now - item.creation_time > ICE_CREAM_SHELF_LIFE:
@@ -82,19 +114,34 @@ def inventory_manager(env, restaurant, stats):
         restaurant.ice_cream_shelf.items = valid_ice_cream
 
 
-# --- 4. Expiration Helper ---
 def grab_food_from_shelf(env, shelf):
-    """Simply grabs the food. The inventory_manager handles expiration."""
+    """Retrieves a food item from a specified shelf.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        shelf (simpy.Store): The specific inventory shelf to retrieve the item from.
+
+    Yields:
+        simpy.events.Get: An event representing the retrieval of a food item.
+    """
     food = yield shelf.get()
     return food
 
 
-def customer_journey(
-    env: simpy.Environment, name: str, restaurant: FastFoodRestaurant, stats
-):
+def customer_journey(env, name, restaurant, stats):
+    """Simulates the entire journey of a single customer through the restaurant.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        name (str): The unique identifier for the customer.
+        restaurant (FastFoodRestaurant): The restaurant instance.
+        stats (dict): The dictionary tracking simulation statistics.
+
+    Yields:
+        simpy.events.Event: Various simulation events representing waiting, ordering, and picking up food.
+    """
     arrival_time = env.now
 
-    # Generate random order
     num_burgers = random.choices([0, 1, 2, 4], weights=[10, 60, 20, 10])[0]
     num_fries = random.choices([0, 1, 2, 3], weights=[20, 50, 20, 10])[0]
     num_ice_cream = random.choices([0, 1], weights=[70, 30])[0]
@@ -108,7 +155,6 @@ def customer_journey(
         + (num_ice_cream * PRICE_ICE_CREAM)
     )
 
-    # 1. Balking
     if len(restaurant.cashier.queue) >= MAX_QUEUE_LENGTH:
         stats["balked"].append(1)
         stats["lost_revenue"].append(order_price)
@@ -118,14 +164,13 @@ def customer_journey(
         stats["lost_revenue"].append(order_price)
         return
 
-    # 2. Reneging (Waiting in line for Cashier)
     with restaurant.cashier.request() as req:
         time_pct = env.now / SIM_TIME
         if 0.33 <= time_pct <= 0.66:
-            # The Rush! (Middle 33% of the simulation). Customers are 2.5x more impatient!
             current_patience = MAX_WAIT_TOLERANCE * 0.5
         else:
             current_patience = MAX_WAIT_TOLERANCE
+
         patience_timer = env.timeout(current_patience)
         results = yield req | patience_timer
 
@@ -138,13 +183,11 @@ def customer_journey(
         order_time += (num_burgers + num_fries + num_ice_cream) * 5.0
         yield env.timeout(order_time)
 
-    # --- LEVEL 3: REGISTER PENDING ORDERS TO THE KITCHEN ---
     restaurant.pending_burgers += num_burgers
     restaurant.pending_fries += num_fries
     restaurant.pending_ice_cream += num_ice_cream
     restaurant.customers_waiting_for_food += 1
 
-    # 3. Dynamic Pickup (Waiting at the pickup counter for food)
     food_tasks = []
     for _ in range(num_burgers):
         food_tasks.append(
@@ -162,29 +205,34 @@ def customer_journey(
     if food_tasks:
         yield simpy.events.AllOf(env, food_tasks)
 
-    # --- LEVEL 3: CLEAR PENDING ORDERS ONCE SERVED ---
     restaurant.pending_burgers -= num_burgers
     restaurant.pending_fries -= num_fries
     restaurant.pending_ice_cream -= num_ice_cream
     restaurant.customers_waiting_for_food -= 1
 
-    # 4. Success!
     departure_time = env.now
     stats["wait_times"].append(departure_time - arrival_time)
     stats["captured_revenue"].append(order_price)
 
 
 def customer_arrivals(env, restaurant, stats):
+    """Generates a continuous stream of arriving customers based on the time of day.
+
+    Args:
+        env (simpy.Environment): The simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant instance.
+        stats (dict): The dictionary tracking simulation statistics.
+
+    Yields:
+        simpy.events.Timeout: The time delay before the next customer arrives.
+    """
     count = 0
     while True:
-        # --- LEVEL 2: THE LUNCH RUSH ---
         time_pct = env.now / SIM_TIME
 
         if 0.33 <= time_pct <= 0.66:
-            # The Rush! (Middle 33% of the simulation). Customers arrive 2.5x faster!
             current_arrival_rate = ARRIVAL_AVG * 0.4
         else:
-            # Slow hours (Beginning and End). Customers arrive 1.5x slower.
             current_arrival_rate = ARRIVAL_AVG * 1.5
 
         yield env.timeout(random.expovariate(1.0 / current_arrival_rate))

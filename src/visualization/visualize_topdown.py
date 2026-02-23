@@ -2,7 +2,6 @@ import os
 import sys
 import warnings
 
-# Hide the deprecation warning and the Pygame welcome message
 warnings.filterwarnings("ignore", category=UserWarning, module="pygame")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
@@ -13,27 +12,32 @@ from src.config import *
 from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
 from src.sim.restaurant import FastFoodRestaurant
 
-# --- COLORS (RGB Tuples) ---
-BG_COLOR = (30, 30, 35)  # Dark background
-FLOOR_COLOR = (50, 50, 55)  # Kitchen/Lobby floor
+BG_COLOR = (30, 30, 35)
+FLOOR_COLOR = (50, 50, 55)
 TEXT_COLOR = (240, 240, 240)
 
-# Actor Colors
-CUSTOMER_COLOR = (100, 200, 255)  # Light Blue
-CASHIER_COLOR = (180, 80, 255)  # Purple
-B_COOK_COLOR = (255, 80, 80)  # Red
-F_COOK_COLOR = (255, 160, 50)  # Orange
-IDLE_GRAY = (80, 80, 80)  # Gray for idle employees
-WAITING_FOOD_COLOR = (255, 255, 100)  # Yellow
+CUSTOMER_COLOR = (100, 200, 255)
+CASHIER_COLOR = (180, 80, 255)
+B_COOK_COLOR = (255, 80, 80)
+F_COOK_COLOR = (255, 160, 50)
+IDLE_GRAY = (80, 80, 80)
+WAITING_FOOD_COLOR = (255, 255, 100)
 
-# Object Colors
-COUNTER_COLOR = (120, 90, 70)  # Wood
-BURGER_COLOR = (139, 69, 19)  # Dark Brown
-FRIES_COLOR = (255, 215, 0)  # Gold
+COUNTER_COLOR = (120, 90, 70)
+BURGER_COLOR = (139, 69, 19)
+FRIES_COLOR = (255, 215, 0)
 
 
 def cook_burger_task(env, restaurant):
-    """Background task for a cook to actually make the burger."""
+    """Executes the background simulation process for cooking burgers.
+
+    Args:
+        env (simpy.Environment): The active simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant state object holding resources and inventory.
+
+    Yields:
+        simpy.events.Timeout: The delay corresponding to the time taken to cook a burger batch.
+    """
     with restaurant.burger_cook.request() as req:
         yield req
         yield env.timeout(BURGER_MODE)
@@ -42,7 +46,15 @@ def cook_burger_task(env, restaurant):
 
 
 def cook_fries_task(env, restaurant):
-    """Background task for a cook to actually make the fries."""
+    """Executes the background simulation process for cooking fries.
+
+    Args:
+        env (simpy.Environment): The active simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant state object holding resources and inventory.
+
+    Yields:
+        simpy.events.Timeout: The delay corresponding to the time taken to cook a fries batch.
+    """
     with restaurant.fries_cook.request() as req:
         yield req
         yield env.timeout(FRIES_TIME)
@@ -51,35 +63,49 @@ def cook_fries_task(env, restaurant):
 
 
 def optuna_static_manager(env, restaurant):
-    """The manager now delegates tasks and immediately moves on to enable parallel cooking."""
+    """A static kitchen manager that assigns cooking tasks based on predefined inventory targets.
+
+    Args:
+        env (simpy.Environment): The active simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant state object.
+
+    Yields:
+        simpy.events.Timeout: A brief interval before re-evaluating inventory levels.
+    """
     while True:
-        # 1. Check Burgers
         if len(restaurant.burger_shelf.items) < TARGET_BURGER_INV:
-            # Check how many cooks are currently busy OR waiting for a task
             active_b_tasks = restaurant.burger_cook.count + len(
                 restaurant.burger_cook.queue
             )
 
-            # If we have an idle cook, assign them a task in the background!
             if active_b_tasks < restaurant.burger_cook.capacity:
                 env.process(cook_burger_task(env, restaurant))
 
-        # 2. Check Fries
         if len(restaurant.fries_shelf.items) < TARGET_FRIES_INV:
             active_f_tasks = restaurant.fries_cook.count + len(
                 restaurant.fries_cook.queue
             )
 
-            # If we have an idle cook, assign them a task in the background!
             if active_f_tasks < restaurant.fries_cook.capacity:
                 env.process(cook_fries_task(env, restaurant))
 
-        # Wait just 1 second before scanning the kitchen again
         yield env.timeout(1.0)
 
 
 def topdown_renderer(env, restaurant, stats, screen, clock, font):
-    """Draws the top-down 2D map of the restaurant."""
+    """Renders a real-time, top-down 2D visual representation of the restaurant simulation.
+
+    Args:
+        env (simpy.Environment): The active simulation environment.
+        restaurant (FastFoodRestaurant): The restaurant state object containing tracking metrics.
+        stats (dict): A dictionary tracking financial and operational statistics.
+        screen (pygame.Surface): The main Pygame display surface.
+        clock (pygame.time.Clock): The Pygame clock controlling the frame rate.
+        font (pygame.font.Font): The font used for rendering text to the display.
+
+    Yields:
+        simpy.events.Timeout: A simulated interval to step the animation forward.
+    """
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -88,20 +114,13 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
 
         screen.fill(BG_COLOR)
 
-        # Draw the main building floor
         pygame.draw.rect(screen, FLOOR_COLOR, (50, 50, 700, 500), border_radius=10)
 
-        # --- DRAW STATIC ARCHITECTURE ---
-        # The Main Order Counter
         pygame.draw.rect(screen, COUNTER_COLOR, (100, 350, 600, 30))
 
-        # Kitchen Prep Tables
-        pygame.draw.rect(screen, COUNTER_COLOR, (150, 150, 200, 40))  # Burger Prep
-        pygame.draw.rect(screen, COUNTER_COLOR, (450, 150, 200, 40))  # Fries Prep
+        pygame.draw.rect(screen, COUNTER_COLOR, (150, 150, 200, 40))
+        pygame.draw.rect(screen, COUNTER_COLOR, (450, 150, 200, 40))
 
-        # --- DRAW ACTORS & INVENTORY ---
-
-        # 1. Cooks (Top of the screen)
         active_b = restaurant.burger_cook.count
         for i in range(restaurant.burger_cook.capacity):
             x, y = 200 + (i * 80), 100
@@ -116,7 +135,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             pygame.draw.circle(screen, color, (x, y), 18)
             screen.blit(font.render("F", True, TEXT_COLOR), (x - 5, y - 10))
 
-        # 2. Food Inventory (On the prep tables)
         b_inv = len(restaurant.burger_shelf.items)
         for i in range(b_inv):
             pygame.draw.rect(
@@ -127,7 +145,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
         for i in range(f_inv):
             pygame.draw.rect(screen, FRIES_COLOR, (460 + (i * 12), 160, 8, 15))
 
-        # 3. Cashiers (Behind the counter)
         active_c = restaurant.cashier.count
         for i in range(restaurant.cashier.capacity):
             x, y = 200 + (i * 120), 320
@@ -135,11 +152,9 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             pygame.draw.circle(screen, color, (x, y), 15)
             screen.blit(font.render("$", True, TEXT_COLOR), (x - 4, y - 10))
 
-            # 4. Active Ordering Customers (In front of the counter)
             if i < active_c:
                 pygame.draw.circle(screen, CUSTOMER_COLOR, (x, 400), 15)
 
-        # 5. Customer Line Queue (Lobby area)
         queue_len = len(restaurant.cashier.queue)
         for i in range(queue_len):
             row = i // 15
@@ -148,7 +163,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             y = 450 + (row * 35)
             pygame.draw.circle(screen, CUSTOMER_COLOR, (x, y), 12)
 
-        # 6. Waiting for Food (At the pickup counter)
         pickup_text = font.render("Pickup Area", True, TEXT_COLOR)
         screen.blit(pickup_text, (600, 320))
 
@@ -162,7 +176,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             y = 360 + (row * 30)
             pygame.draw.circle(screen, WAITING_FOOD_COLOR, (x, y), 12)
 
-        # Draw text if the pickup area overflows
         if waiting_count > MAX_VISUAL_PICKUP:
             overflow = waiting_count - MAX_VISUAL_PICKUP
             overflow_text = font.render(
@@ -170,7 +183,6 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             )
             screen.blit(overflow_text, (600, 360 + (4 * 30)))
 
-        # --- DRAW LIVE FINANCIAL STATS ---
         time_text = font.render(
             f"Simulation Clock: {env.now:.0f}s / {SIM_TIME}s", True, TEXT_COLOR
         )
@@ -189,25 +201,21 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
         screen.blit(rev_text, (300, 10))
         screen.blit(lost_text, (550, 10))
 
-        # Push everything to the screen and control the framerate
         pygame.display.flip()
         clock.tick(60)
 
-        # Advance SimPy time!
         yield env.timeout(1.0)
 
 
 if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
-    pygame.display.set_caption("🍔 Top-Down Restaurant Visualizer")
+    pygame.display.set_caption("Top-Down Restaurant Visualizer")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 16, bold=True)
 
     env = simpy.Environment()
 
-    # I set this back to 4 Cashiers, 2 Burger Cooks, and 1 Fry Cook to match standard Optuna.
-    # You can change it to 4, 4, 1 if you want a massive kitchen!
     restaurant = FastFoodRestaurant(env, 4, 4, 1)
 
     stats = {
@@ -224,7 +232,6 @@ if __name__ == "__main__":
     env.process(inventory_manager(env, restaurant, stats))
     env.process(optuna_static_manager(env, restaurant))
 
-    # Launch the visualizer process
     env.process(topdown_renderer(env, restaurant, stats, screen, clock, font))
 
     print("Launching Pygame Top-Down View...")
