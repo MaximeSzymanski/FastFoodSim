@@ -35,12 +35,10 @@ def train_kitchen_ai():
         monitor_dir="stats",
     )
 
-    model = MaskablePPO(
-        "MlpPolicy", env, verbose=0, learning_rate=0.0003, ent_coef=0.05
-    )
+    model = MaskablePPO("MlpPolicy", env, verbose=0, learning_rate=0.001, ent_coef=0.01)
 
     print("Beginning Training...")
-    model.learn(total_timesteps=100_000, progress_bar=True)
+    model.learn(total_timesteps=1_000_000, progress_bar=True)
 
     # Save to the new models folder
     model.save("models/fast_food_manager_ai")

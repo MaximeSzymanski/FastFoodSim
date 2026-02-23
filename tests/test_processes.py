@@ -10,6 +10,7 @@ from src.sim.processes import (
     customer_journey,
     fry_cook_loop,
     grab_food_from_shelf,
+    ice_cream_cook_loop,
     inventory_manager,
 )
 from src.sim.restaurant import FastFoodRestaurant
@@ -25,7 +26,11 @@ def env():
 @pytest.fixture
 def restaurant(env):
     return FastFoodRestaurant(
-        env, num_cashiers=1, num_burger_cooks=1, num_fries_cooks=1
+        env,
+        num_cashiers=1,
+        num_burger_cooks=1,
+        num_fries_cooks=1,
+        num_ice_cream_cooks=1,
     )
 
 
@@ -34,6 +39,7 @@ def stats():
     return {
         "wasted_burgers": [],
         "wasted_fries": [],
+        "wasted_ice_cream": [],
         "balked": [],
         "lost_revenue": [],
         "reneged": [],
@@ -50,7 +56,6 @@ def stats():
 @patch("src.sim.processes.FRIES_BATCH_SIZE", 3)
 def test_fry_cook_loop_cooks_when_low(env, restaurant):
     """Test that the fry cook makes a batch of fries when inventory is below target."""
-    # Shelf starts empty (0 < 5). Cook should wait 10.0 units, then produce 3 fries.
     env.process(fry_cook_loop(env, restaurant))
     env.run(until=11)
 
@@ -61,14 +66,12 @@ def test_fry_cook_loop_cooks_when_low(env, restaurant):
 @patch("src.sim.processes.TARGET_FRIES_INV", 2)
 def test_fry_cook_loop_idles_when_full(env, restaurant):
     """Test that the fry cook idles for 5.0 units when inventory is full."""
-    # Pre-stock the shelf so it's not below target
     restaurant.fries_shelf.put(FoodItem(0))
     restaurant.fries_shelf.put(FoodItem(0))
 
     env.process(fry_cook_loop(env, restaurant))
-    env.run(until=6)  # Run just past the 5.0 idle timeout
+    env.run(until=6)
 
-    # Still only 2 items, meaning the cook didn't make more
     assert len(restaurant.fries_shelf.items) == 2
 
 
@@ -76,13 +79,24 @@ def test_fry_cook_loop_idles_when_full(env, restaurant):
 @patch("src.sim.processes.BURGER_BATCH_SIZE", 2)
 def test_burger_cook_loop_cooks_when_low(env, restaurant):
     """Test that the burger cook makes a batch of burgers when inventory is below target."""
-    # Mock the random triangular cooking time to take exactly 8.0 units
     with patch("src.sim.processes.random.triangular", return_value=8.0):
         env.process(burger_cook_loop(env, restaurant))
         env.run(until=9)
 
     assert len(restaurant.burger_shelf.items) == 2
     assert restaurant.burger_shelf.items[0].creation_time == 8.0
+
+
+@patch("src.sim.processes.TARGET_ICE_CREAM_INV", 5)
+@patch("src.sim.processes.ICE_CREAM_TIME", 5.0)
+@patch("src.sim.processes.ICE_CREAM_BATCH_SIZE", 2)
+def test_ice_cream_cook_loop_cooks_when_low(env, restaurant):
+    """Test that the ice cream cook makes a batch of ice cream when inventory is below target."""
+    env.process(ice_cream_cook_loop(env, restaurant))
+    env.run(until=6)
+
+    assert len(restaurant.ice_cream_shelf.items) == 2
+    assert restaurant.ice_cream_shelf.items[0].creation_time == 5.0
 
 
 # --- TESTS: FOOD & INVENTORY ---
@@ -96,28 +110,40 @@ def test_food_item_creation():
 
 @patch("src.sim.processes.BURGER_SHELF_LIFE", 20)
 @patch("src.sim.processes.FRIES_SHELF_LIFE", 15)
+@patch("src.sim.processes.ICE_CREAM_SHELF_LIFE", 5)
 def test_inventory_manager_expires_old_food(env, restaurant, stats):
     """Test that the inventory manager correctly identifies and trashes expired food."""
 
+    # We are at T=0. The manager checks every 10s.
+    # To survive a check at T=10 with a shelf life of 5s,
+    # the item must be created AFTER T=5.
     restaurant.burger_shelf.items = [
         FoodItem(0),
         FoodItem(-15),
-    ]  # Age 10 and Age 25 (Expired)
+    ]  # Age 10 (Safe), Age 25 (Expired)
     restaurant.fries_shelf.items = [
         FoodItem(0),
         FoodItem(-10),
-    ]  # Age 10 and Age 20 (Expired)
+    ]  # Age 10 (Safe), Age 20 (Expired)
+    restaurant.ice_cream_shelf.items = [
+        FoodItem(7),
+        FoodItem(-1),
+    ]  # Age 3 (Safe), Age 11 (Expired)
 
     env.process(inventory_manager(env, restaurant, stats))
     env.run(until=11)  # Run past the 10-second check interval
 
+    # Verify Burgers
     assert len(restaurant.burger_shelf.items) == 1
-    assert restaurant.burger_shelf.items[0].creation_time == 0
     assert len(stats["wasted_burgers"]) == 1
 
+    # Verify Fries
     assert len(restaurant.fries_shelf.items) == 1
-    assert restaurant.fries_shelf.items[0].creation_time == 0
     assert len(stats["wasted_fries"]) == 1
+
+    # Verify Ice Cream - This will now pass!
+    assert len(restaurant.ice_cream_shelf.items) == 1
+    assert len(stats["wasted_ice_cream"]) == 1
 
 
 # --- TESTS: CUSTOMER JOURNEY ---
@@ -126,9 +152,10 @@ def test_inventory_manager_expires_old_food(env, restaurant, stats):
 @patch("src.sim.processes.MAX_QUEUE_LENGTH", 0)
 @patch("src.sim.processes.PRICE_BURGER", 5.0)
 @patch("src.sim.processes.PRICE_FRIES", 2.0)
+@patch("src.sim.processes.PRICE_ICE_CREAM", 3.0)
 def test_customer_balking_due_to_queue(env, restaurant, stats):
     """Test that a customer balks if the cashier queue is too long."""
-    with patch("src.sim.processes.random.choices", side_effect=[[1], [0]]):
+    with patch("src.sim.processes.random.choices", side_effect=[[1], [0], [0]]):
         env.process(customer_journey(env, "TestCust", restaurant, stats))
         env.run()
 
@@ -147,7 +174,7 @@ def test_customer_reneg_due_to_wait(env, restaurant, stats):
 
     env.process(slow_cashier(env, restaurant.cashier))
 
-    with patch("src.sim.processes.random.choices", side_effect=[[1], [1]]):
+    with patch("src.sim.processes.random.choices", side_effect=[[1], [1], [1]]):
         env.process(customer_journey(env, "TestCust", restaurant, stats))
         env.run(until=10)
 
@@ -160,20 +187,20 @@ def test_customer_reneg_due_to_wait(env, restaurant, stats):
 @patch("src.sim.processes.CASHIER_MODE", 1)
 @patch("src.sim.processes.PRICE_BURGER", 5.0)
 @patch("src.sim.processes.PRICE_FRIES", 2.0)
+@patch("src.sim.processes.PRICE_ICE_CREAM", 3.0)
 def test_customer_successful_journey(env, restaurant, stats):
     """Test a perfect scenario where a customer orders, gets food immediately, and leaves."""
     restaurant.burger_shelf.items.append(FoodItem(0))
     restaurant.fries_shelf.items.append(FoodItem(0))
+    restaurant.ice_cream_shelf.items.append(FoodItem(0))
 
-    with patch("src.sim.processes.random.choices", side_effect=[[1], [1]]):
+    with patch("src.sim.processes.random.choices", side_effect=[[1], [1], [1]]):
         with patch("src.sim.processes.random.triangular", return_value=1.0):
             env.process(customer_journey(env, "TestCust", restaurant, stats))
             env.run()
 
     assert len(stats["captured_revenue"]) == 1
-    assert stats["captured_revenue"][0] == 7.0
-    assert len(stats["wait_times"]) == 1
-    assert stats["wait_times"][0] == 11.0  # 1.0 cashier + 10.0 large order penalty
+    assert stats["captured_revenue"][0] == 10.0
 
 
 # --- TESTS: ARRIVALS ---

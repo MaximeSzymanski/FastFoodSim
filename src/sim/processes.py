@@ -12,7 +12,7 @@ class FoodItem:
         self.creation_time = creation_time
 
 
-# --- 2. The Autonomous Cook Processes (Restored!) ---
+# --- 2. The Autonomous Cook Processes ---
 def fry_cook_loop(env, restaurant):
     """Continuously cooks fries if inventory is below target."""
     while True:
@@ -32,6 +32,17 @@ def burger_cook_loop(env, restaurant):
             yield env.timeout(burger_time)
             for _ in range(BURGER_BATCH_SIZE):
                 restaurant.burger_shelf.put(FoodItem(env.now))
+        else:
+            yield env.timeout(5.0)
+
+
+def ice_cream_cook_loop(env, restaurant):
+    """Continuously cooks ice cream if inventory is below target."""
+    while True:
+        if len(restaurant.ice_cream_shelf.items) < TARGET_ICE_CREAM_INV:
+            yield env.timeout(ICE_CREAM_TIME)
+            for _ in range(ICE_CREAM_BATCH_SIZE):
+                restaurant.ice_cream_shelf.put(FoodItem(env.now))
         else:
             yield env.timeout(5.0)
 
@@ -61,8 +72,17 @@ def inventory_manager(env, restaurant, stats):
                 valid_fries.append(item)
         restaurant.fries_shelf.items = valid_fries
 
+        # Check Ice Cream
+        valid_ice_cream = []
+        for item in restaurant.ice_cream_shelf.items:
+            if env.now - item.creation_time > ICE_CREAM_SHELF_LIFE:
+                stats["wasted_ice_cream"].append(1)
+            else:
+                valid_ice_cream.append(item)
+        restaurant.ice_cream_shelf.items = valid_ice_cream
 
-# --- 4. Expiration Helper (Simplified) ---
+
+# --- 4. Expiration Helper ---
 def grab_food_from_shelf(env, shelf):
     """Simply grabs the food. The inventory_manager handles expiration."""
     food = yield shelf.get()
@@ -78,10 +98,16 @@ def customer_journey(
     # Generate random order
     num_burgers = random.choices([0, 1, 2, 4], weights=[10, 60, 20, 10])[0]
     num_fries = random.choices([0, 1, 2, 3], weights=[20, 50, 20, 10])[0]
-    if num_burgers == 0 and num_fries == 0:
+    num_ice_cream = random.choices([0, 1], weights=[70, 30])[0]
+
+    if num_burgers == 0 and num_fries == 0 and num_ice_cream == 0:
         num_burgers = 1
 
-    order_price = (num_burgers * PRICE_BURGER) + (num_fries * PRICE_FRIES)
+    order_price = (
+        (num_burgers * PRICE_BURGER)
+        + (num_fries * PRICE_FRIES)
+        + (num_ice_cream * PRICE_ICE_CREAM)
+    )
 
     # 1. Balking
     if len(restaurant.cashier.queue) >= MAX_QUEUE_LENGTH:
@@ -104,7 +130,9 @@ def customer_journey(
             return
 
         order_time = random.triangular(CASHIER_MIN, CASHIER_MAX, CASHIER_MODE)
-        order_time += (num_burgers + num_fries) * 5.0  # Add extra time for large orders
+        order_time += (
+            num_burgers + num_fries + num_ice_cream
+        ) * 5.0  # Add extra time for large orders
         yield env.timeout(order_time)
 
     restaurant.customers_waiting_for_food += 1
@@ -118,6 +146,10 @@ def customer_journey(
     for _ in range(num_fries):
         food_tasks.append(
             env.process(grab_food_from_shelf(env, restaurant.fries_shelf))
+        )
+    for _ in range(num_ice_cream):
+        food_tasks.append(
+            env.process(grab_food_from_shelf(env, restaurant.ice_cream_shelf))
         )
 
     if food_tasks:
