@@ -8,11 +8,14 @@ from src.rl.FastFoodEnv import FastFoodEnv
 
 
 def make_env():
-    """Utility function for multiprocessing."""
+    """Creates a callable that initializes the environment for multiprocessing.
+
+    Returns:
+        callable: A function that returns a monitored FastFoodEnv instance.
+    """
 
     def _init():
         env = FastFoodEnv()
-        # A2C doesn't support ActionMasker, so we just wrap it in Monitor!
         env = Monitor(env)
         return env
 
@@ -30,7 +33,6 @@ if __name__ == "__main__":
     num_cpu = 4
     env = SubprocVecEnv([make_env() for i in range(num_cpu)])
 
-    # Build the A2C Agent
     model = A2C(
         "MlpPolicy",
         env,
@@ -40,7 +42,7 @@ if __name__ == "__main__":
     )
 
     total_timesteps = 500_000
-    print(f"Beginning A2C training. Open TensorBoard to watch progress!")
+    print("Beginning A2C training. Open TensorBoard to watch progress!")
 
     model.learn(
         total_timesteps=total_timesteps,
