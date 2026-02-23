@@ -2,7 +2,7 @@
 SIM_TIME = 3600  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
-ARRIVAL_AVG = 22.0  # HARD: A constant flood of customers (was 35.0)
+ARRIVAL_AVG = 60.0  # HARD: A constant flood of customers (was 35.0)
 
 CASHIER_MIN = 20.0
 CASHIER_MAX = 120.0
@@ -13,6 +13,15 @@ BURGER_MAX = 60.0
 BURGER_MODE = 45.0  # HARD: Cooks take slightly longer per burger (was 35.0)
 
 FRIES_TIME = 150.0  # HARD: Fries take longer to fry (was 120.0)
+
+# --- ICE CREAM CONFIG ---
+ICE_CREAM_TIME = 15.0  # Very fast to pour!
+ICE_CREAM_BATCH_SIZE = 1
+TARGET_ICE_CREAM_INV = 8
+ICE_CREAM_SHELF_LIFE = 60.0  # Melts fast! (1 minute)
+PRICE_ICE_CREAM = 3.00
+COST_WASTED_ICE_CREAM = 0.50
+WAGE_ICE_CREAM_COOK = 14.00
 
 # --- BATCHING & INVENTORY HYPERPARAMETERS ---
 FRIES_BATCH_SIZE = 4

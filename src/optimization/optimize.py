@@ -10,7 +10,8 @@ from src.sim.processes import (
     burger_cook_loop,
     customer_arrivals,
     fry_cook_loop,
-    inventory_manager,  # Added this so waste gets tracked!
+    ice_cream_cook_loop,  # NEW: Added ice cream cook loop
+    inventory_manager,
 )
 from src.sim.restaurant import FastFoodRestaurant
 
@@ -21,7 +22,7 @@ N_SEEDS = (
 N_TRIALS = 50  # How many totally different setups Optuna will try
 
 
-def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, n_seeds):
+def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, ice_cream_cooks, n_seeds):
     """Runs a mini-batch of simulations and returns the average profit."""
     profits = []
 
@@ -33,18 +34,20 @@ def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, n_seeds):
             "wait_times": [],
             "wasted_burgers": [],
             "wasted_fries": [],
+            "wasted_ice_cream": [],  # NEW: Track ice cream waste
             "balked": [],
             "reneged": [],
             "captured_revenue": [],
             "lost_revenue": [],
         }
 
-        # UPDATED: Pass all staff counts to the restaurant
+        # UPDATED: Pass all staff counts to the restaurant, including ice cream!
         restaurant = FastFoodRestaurant(
             env,
             num_cashiers=cashiers,
             num_burger_cooks=burger_cooks,
             num_fries_cooks=fries_cooks,
+            num_ice_cream_cooks=ice_cream_cooks,
         )
 
         # Start all the background processes
@@ -52,10 +55,12 @@ def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, n_seeds):
             env.process(burger_cook_loop(env, restaurant))
         for _ in range(fries_cooks):
             env.process(fry_cook_loop(env, restaurant))
+        for _ in range(ice_cream_cooks):
+            env.process(
+                ice_cream_cook_loop(env, restaurant)
+            )  # NEW: Launch ice cream cooks
 
         env.process(customer_arrivals(env, restaurant, stats))
-
-        # Start the inventory manager so waste is actually calculated!
         env.process(inventory_manager(env, restaurant, stats))
 
         env.run(until=config.SIM_TIME)
@@ -63,13 +68,20 @@ def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, n_seeds):
         # Calculate the Profit for this specific run
         revenue = sum(stats["captured_revenue"])
         sim_hours = config.SIM_TIME / 3600.0
+
+        # NEW: Include Ice Cream wages
         cost_staff = (
             cashiers * config.WAGE_CASHIER
             + burger_cooks * config.WAGE_BURGER_COOK
             + fries_cooks * config.WAGE_FRIES_COOK
+            + ice_cream_cooks * config.WAGE_ICE_CREAM_COOK
         ) * sim_hours
-        waste_cost = (len(stats["wasted_burgers"]) * config.COST_WASTED_BURGER) + (
-            len(stats["wasted_fries"]) * config.COST_WASTED_FRIES
+
+        # NEW: Include Ice Cream waste costs
+        waste_cost = (
+            (len(stats["wasted_burgers"]) * config.COST_WASTED_BURGER)
+            + (len(stats["wasted_fries"]) * config.COST_WASTED_FRIES)
+            + (len(stats["wasted_ice_cream"]) * config.COST_WASTED_ICE_CREAM)
         )
 
         profit = revenue - (cost_staff + waste_cost)
@@ -86,13 +98,21 @@ def objective(trial):
     cashiers = trial.suggest_int("cashiers", 1, 5)
     burger_cooks = trial.suggest_int("burger_cooks", 1, 5)
     fries_cooks = trial.suggest_int("fries_cooks", 1, 3)
+    ice_cream_cooks = trial.suggest_int(
+        "ice_cream_cooks", 1, 3
+    )  # NEW: Optimize dessert staff
 
     # 2. Let Optuna suggest the inventory limits
     config.TARGET_BURGER_INV = trial.suggest_int("target_burger_inv", 2, 15)
     config.TARGET_FRIES_INV = trial.suggest_int("target_fries_inv", 4, 20)
+    config.TARGET_ICE_CREAM_INV = trial.suggest_int(
+        "target_ice_cream_inv", 2, 15
+    )  # NEW: Optimize dessert inventory
 
     # 3. Run the simulation, passing in our N_SEEDS parameter!
-    avg_profit = run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, N_SEEDS)
+    avg_profit = run_sim_for_optuna(
+        cashiers, burger_cooks, fries_cooks, ice_cream_cooks, N_SEEDS
+    )
 
     return avg_profit
 
