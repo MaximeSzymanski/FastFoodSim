@@ -2,7 +2,7 @@
 SIM_TIME = 3600  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
-ARRIVAL_AVG = 60.0  # HARD: A constant flood of customers (was 35.0)
+ARRIVAL_AVG = 22.0  # HARD: A constant flood of customers (was 35.0)
 
 CASHIER_MIN = 20.0
 CASHIER_MAX = 120.0
