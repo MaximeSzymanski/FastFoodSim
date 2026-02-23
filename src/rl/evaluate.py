@@ -1,84 +1,70 @@
-import glob
+import os
 
-import gymnasium as gym
-import matplotlib.pyplot as plt
-import pandas as pd
+from gymnasium.wrappers import RecordVideo
 from sb3_contrib import MaskablePPO
-from sb3_contrib.common.wrappers import ActionMasker
-from src.rl.env import FastFoodEnv
 
-from src.rl.train import mask_fn
+from src.rl.FastFoodEnv import FastFoodEnv
 
 
-def plot_learning_curve():
-    """Generates the training progress chart from stats/ logs."""
-    log_files = glob.glob("stats/*.monitor.csv")
-    if not log_files:
-        print("Error: No logs found.")
-        return
+def main():
+    print("Initializing Environment and Video Recorder...")
 
-    dataframes = [pd.read_csv(f, skiprows=1) for f in log_files]
-    df = (
-        pd.concat(dataframes, ignore_index=True).sort_values("t").reset_index(drop=True)
+    # 1. Create the environment in RGB ARRAY mode so it can be recorded
+    base_env = FastFoodEnv(render_mode="rgb_array")
+
+    # 2. Wrap it to record an MP4! (It will save in a folder called 'videos')
+    os.makedirs("videos", exist_ok=True)
+    env = RecordVideo(
+        base_env,
+        video_folder="videos",
+        name_prefix="lunch_rush_ai",
+        episode_trigger=lambda x: True,  # Record every episode we run
     )
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df["r"], alpha=0.3, color="#66b3ff", label="Raw Episode Reward")
-
-    if len(df) >= 50:
-        window = min(len(df), 100)
-        df["rolling_reward"] = df["r"].rolling(window=window).mean()
-        plt.plot(
-            df.index, df["rolling_reward"], color="#000080", linewidth=2, label="Trend"
-        )
-
-    plt.title(f"AI Manager Training Progress ({len(df)} Episodes)")
-    plt.xlabel("Training Episode")
-    plt.ylabel("Net Reward (Scaled)")
-    plt.legend()
-    plt.grid(axis="y", linestyle="--", alpha=0.7)
-    plt.savefig("stats/rl_learning_curve.png")
-    print(f"Chart saved to stats/rl_learning_curve.png")
-
-
-def test_trained_ai():
-    """Runs a visual shift using the saved model."""
+    # 3. Load your newly trained, profitable model
+    model_path = "models/fast_food_manager_ai"
     try:
-        model = MaskablePPO.load("models/fast_food_manager_ai")
-    except Exception:
-        print("Model not found! Run train.py first.")
+        model = MaskablePPO.load(model_path, env=env)
+        print(f"Successfully loaded model from {model_path}")
+    except Exception as e:
+        print(f"Could not load model. Did you train it yet? Error: {e}")
         return
 
-    test_env = FastFoodEnv()
-    env = ActionMasker(test_env, mask_fn)
-    obs, _ = env.reset(seed=42)
-    terminated = False
-    total_reward = 0
+    # 4. Watch it work!
+    obs, info = env.reset()
+    done = False
 
-    action_meanings = {
-        0: "Did nothing",
-        1: "Ordered Burger",
-        2: "Ordered Fries",
-        3: "Ordered BOTH",
-    }
-    inner_env = env.unwrapped
+    print("Recording AI management shift... Please wait (this may take a minute).")
 
-    while not terminated:
-        action_masks = inner_env.action_masks()
-        action, _ = model.predict(obs, action_masks=action_masks, deterministic=True)
-        action = int(action)
+    while not done:
+        # Get the AI's action based on the current state and action masks
+        action, _states = model.predict(
+            obs, action_masks=env.unwrapped.action_masks(), deterministic=True
+        )
 
-        obs, reward, terminated, truncated, _ = env.step(action)
-        total_reward += reward
+        # Step the environment (the wrapper automatically grabs the frame and saves it!)
+        obs, reward, terminated, truncated, info = env.step(action)
 
-        if action != 0:
-            print(
-                f"[Time: {obs[5] * 3600:.0f}s] Queue: {obs[0] * 20:.0f} | AI Decision: {action_meanings[action]}"
-            )
+        done = terminated or truncated
 
-    print(f"Shift Complete! Scaled Reward: {total_reward:.2f}")
+    # 5. Extract Final Stats to see how it did
+    final_revenue = sum(env.unwrapped.stats["captured_revenue"])
+    final_waste = (len(env.unwrapped.stats["wasted_burgers"]) * 3.50) + (
+        len(env.unwrapped.stats["wasted_fries"]) * 1.00
+    )
+    lost_customers = len(env.unwrapped.stats["balked"]) + len(
+        env.unwrapped.stats["reneged"]
+    )
+
+    # Safely close the window and finalize the MP4 file
+    env.close()
+
+    print("\n--- SHIFT COMPLETE ---")
+    print(f"Total Revenue Captured: ${final_revenue:.2f}")
+    print(f"Total Food Wasted: ${final_waste:.2f}")
+    print(f"Total Walk-Outs: {lost_customers}")
+    print("Video saved successfully in the 'videos' folder!")
 
 
 if __name__ == "__main__":
-    plot_learning_curve()
-    test_trained_ai()
+    main()

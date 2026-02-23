@@ -1,36 +1,38 @@
 # --- SIMULATION SETTINGS ---
-SIM_TIME = 3600 * 24  # Run for 1 hour (in seconds)
+SIM_TIME = 3600  # Run for 1 hour (in seconds)
 
 # --- PROCESS TIMES (in seconds) ---
-ARRIVAL_AVG = 35.0  # Average time between customers
-
+ARRIVAL_AVG = 22.0  # HARD: A constant flood of customers (was 35.0)
 
 CASHIER_MIN = 20.0
 CASHIER_MAX = 120.0
 CASHIER_MODE = 60.0
 
-BURGER_MIN = 30.0
-BURGER_MAX = 50.0
-BURGER_MODE = 35.0
+BURGER_MIN = 35.0
+BURGER_MAX = 60.0
+BURGER_MODE = 45.0  # HARD: Cooks take slightly longer per burger (was 35.0)
 
-FRIES_TIME = 120.0
+FRIES_TIME = 150.0  # HARD: Fries take longer to fry (was 120.0)
 
 # --- BATCHING & INVENTORY HYPERPARAMETERS ---
-FRIES_BATCH_SIZE = 4  # A basket makes 4 portions of fries at once
-BURGER_BATCH_SIZE = 1  # Cooks still make 1 burger at a time
+FRIES_BATCH_SIZE = 4
+BURGER_BATCH_SIZE = 1
 
-TARGET_FRIES_INV = 14  # Stop frying if there are 8 portions on the shelf
-TARGET_BURGER_INV = 5  # Stop grilling if there are 5 burgers on the shelf
+TARGET_FRIES_INV = 14
+TARGET_BURGER_INV = 5
 
-FRIES_SHELF_LIFE = 300.0  # Throw away fries after 5 minutes (300s)
-BURGER_SHELF_LIFE = 600.0  # Throw away burgers after 10 minutes (600s)
-
-MAX_ORDER_WAITING_FOR_FOOD = 15  # If 5 or more customers are waiting for food, new customers will leave without ordering
-# --- CUSTOMER PATIENCE HYPERPARAMETERS ---
-MAX_QUEUE_LENGTH = 5  # Leave immediately if 5 or more people are in the cashier line
-MAX_WAIT_TOLERANCE = (
-    300.0  # Leave the line if waiting for the cashier takes > 5 minutes (300s)
+FRIES_SHELF_LIFE = (
+    180.0  # BRUTAL: Fries go cold and are tossed after 3 mins (was 300.0)
 )
+BURGER_SHELF_LIFE = 300.0  # BRUTAL: Burgers expire after 5 mins (was 600.0)
+
+MAX_ORDER_WAITING_FOR_FOOD = (
+    10  # HARD: Customers walk out if the pickup area looks crowded (was 15)
+)
+
+# --- CUSTOMER PATIENCE HYPERPARAMETERS ---
+MAX_QUEUE_LENGTH = 4  # HARD: Customers balk if just 4 people are in line (was 5)
+MAX_WAIT_TOLERANCE = 180.0  # HARD: Customers renege after waiting 3 mins (was 300.0)
 
 # --- FINANCIAL SETTINGS ---
 PRICE_BURGER = 8.00
@@ -40,5 +42,5 @@ WAGE_CASHIER = 15.00
 WAGE_BURGER_COOK = 18.00
 WAGE_FRIES_COOK = 15.00
 
-COST_WASTED_BURGER = 1.50
-COST_WASTED_FRIES = 0.50
+COST_WASTED_BURGER = 3.50  # PUNISHING: Waste hurts profit much more (was 1.50)
+COST_WASTED_FRIES = 1.00  # PUNISHING: Waste hurts profit much more (was 0.50)
