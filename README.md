@@ -2,6 +2,9 @@
 
 This project is a high-fidelity *Discrete Event Simulation (DES)* of a fast-food restaurant built with *SimPy*. It features an autonomous staffing and inventory optimization engine powered by *Optuna* and a *Reinforcement Learning (RL)* environment compatible with *Gymnasium* for training AI managers.
 
+## Trained RL Agent Performance Video
+![RL Agent Performance](videos/lunch_rush_ai-episode-0.mp4)
+
 ## 🏗 Project Structure
 
 The repository is organized into a modular `src` package to separate simulation logic, optimization, and AI training:
