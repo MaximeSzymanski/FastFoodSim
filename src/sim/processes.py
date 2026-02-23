@@ -89,7 +89,6 @@ def grab_food_from_shelf(env, shelf):
     return food
 
 
-# --- 5. The Customer Journey ---
 def customer_journey(
     env: simpy.Environment, name: str, restaurant: FastFoodRestaurant, stats
 ):
@@ -121,7 +120,13 @@ def customer_journey(
 
     # 2. Reneging (Waiting in line for Cashier)
     with restaurant.cashier.request() as req:
-        patience_timer = env.timeout(MAX_WAIT_TOLERANCE)
+        time_pct = env.now / SIM_TIME
+        if 0.33 <= time_pct <= 0.66:
+            # The Rush! (Middle 33% of the simulation). Customers are 2.5x more impatient!
+            current_patience = MAX_WAIT_TOLERANCE * 0.5
+        else:
+            current_patience = MAX_WAIT_TOLERANCE
+        patience_timer = env.timeout(current_patience)
         results = yield req | patience_timer
 
         if req not in results:
@@ -130,11 +135,13 @@ def customer_journey(
             return
 
         order_time = random.triangular(CASHIER_MIN, CASHIER_MAX, CASHIER_MODE)
-        order_time += (
-            num_burgers + num_fries + num_ice_cream
-        ) * 5.0  # Add extra time for large orders
+        order_time += (num_burgers + num_fries + num_ice_cream) * 5.0
         yield env.timeout(order_time)
 
+    # --- LEVEL 3: REGISTER PENDING ORDERS TO THE KITCHEN ---
+    restaurant.pending_burgers += num_burgers
+    restaurant.pending_fries += num_fries
+    restaurant.pending_ice_cream += num_ice_cream
     restaurant.customers_waiting_for_food += 1
 
     # 3. Dynamic Pickup (Waiting at the pickup counter for food)
@@ -155,6 +162,10 @@ def customer_journey(
     if food_tasks:
         yield simpy.events.AllOf(env, food_tasks)
 
+    # --- LEVEL 3: CLEAR PENDING ORDERS ONCE SERVED ---
+    restaurant.pending_burgers -= num_burgers
+    restaurant.pending_fries -= num_fries
+    restaurant.pending_ice_cream -= num_ice_cream
     restaurant.customers_waiting_for_food -= 1
 
     # 4. Success!
@@ -166,7 +177,18 @@ def customer_journey(
 def customer_arrivals(env, restaurant, stats):
     count = 0
     while True:
-        yield env.timeout(random.expovariate(1.0 / ARRIVAL_AVG))
+        # --- LEVEL 2: THE LUNCH RUSH ---
+        time_pct = env.now / SIM_TIME
+
+        if 0.33 <= time_pct <= 0.66:
+            # The Rush! (Middle 33% of the simulation). Customers arrive 2.5x faster!
+            current_arrival_rate = ARRIVAL_AVG * 0.4
+        else:
+            # Slow hours (Beginning and End). Customers arrive 1.5x slower.
+            current_arrival_rate = ARRIVAL_AVG * 1.5
+
+        yield env.timeout(random.expovariate(1.0 / current_arrival_rate))
+
         count += 1
         name = f"Customer {count}"
         env.process(customer_journey(env, name, restaurant, stats))

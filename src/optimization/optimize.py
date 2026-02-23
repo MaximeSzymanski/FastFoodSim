@@ -19,7 +19,7 @@ from src.sim.restaurant import FastFoodRestaurant
 N_SEEDS = (
     10  # How many random days to test EACH setup (Higher = more accurate, but slower)
 )
-N_TRIALS = 50  # How many totally different setups Optuna will try
+N_TRIALS = 500  # How many totally different setups Optuna will try
 
 
 def run_sim_for_optuna(cashiers, burger_cooks, fries_cooks, ice_cream_cooks, n_seeds):

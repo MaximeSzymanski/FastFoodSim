@@ -37,7 +37,7 @@ UI_BAR_COLOR = (15, 15, 18)
 class FastFoodEnv(gym.Env):
     """
     A Reinforcement Learning environment for our Fast Food Sim.
-    Now uses a Modular MultiDiscrete action space and includes a Dessert Station!
+    Now uses pure financial logic, reputation penalties, and service bonuses!
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
@@ -58,24 +58,18 @@ class FastFoodEnv(gym.Env):
         self.num_ice_cream_cooks = 2
 
         # --- MODULAR ACTION SPACE ---
-        # A list of 3 switches: [Burger, Fries, Ice Cream]
-        # Each switch is 0 (Off/Do Nothing) or 1 (Cook)
         self.action_space = spaces.MultiDiscrete([2, 2, 2])
 
         # --- SCALABLE OBSERVATION SPACE ---
-        # 9 Inputs: [Queue, Time, Busy Cashiers, Burger Inv, Fries Inv, Ice Cream Inv, Idle B, Idle F, Idle I]
+        # 12 Inputs: [Queue, Time, Busy Cashiers, Inv B/F/I, Idle B/F/I, PENDING B/F/I]
         self.observation_space = spaces.Box(
             low=0.0,
             high=1.0,
-            shape=(9,),
+            shape=(12,),
             dtype=np.float32,
         )
 
     def action_masks(self):
-        """
-        Calculates valid actions based on idle staff.
-        For sb3-contrib's MultiDiscrete, this must be a flat 1D boolean array.
-        """
         idle_b = self.num_burger_cooks - self.restaurant.burger_cook.count
         idle_f = self.num_fries_cooks - self.restaurant.fries_cook.count
         idle_i = self.num_ice_cream_cooks - self.restaurant.ice_cream_cook.count
@@ -84,7 +78,6 @@ class FastFoodEnv(gym.Env):
         can_cook_fries = idle_f > 0
         can_cook_ice_cream = idle_i > 0
 
-        # Format: [Do Nothing B, Cook B, Do Nothing F, Cook F, Do Nothing I, Cook I]
         return np.array(
             [True, can_cook_burger, True, can_cook_fries, True, can_cook_ice_cream],
             dtype=bool,
@@ -142,9 +135,12 @@ class FastFoodEnv(gym.Env):
         self.env.process(customer_arrivals(self.env, self.restaurant, self.stats))
         self.env.process(inventory_manager(self.env, self.restaurant, self.stats))
 
+        # Reward tracking states
         self.last_revenue = 0
         self.last_waste_cost = 0
         self.last_lost_revenue = 0
+        self.last_walkouts = 0  # NEW: For the Stick
+        self.last_served = 0  # NEW: For the Carrot
 
         return self._get_obs(), {}
 
@@ -169,6 +165,11 @@ class FastFoodEnv(gym.Env):
             self.num_ice_cream_cooks - self.restaurant.ice_cream_cook.count
         ) / self.num_ice_cream_cooks
 
+        # Pending Orders (Scaled by 30)
+        pending_b = self.restaurant.pending_burgers / 30.0
+        pending_f = self.restaurant.pending_fries / 30.0
+        pending_i = self.restaurant.pending_ice_cream / 30.0
+
         obs = np.array(
             [
                 queue_len,
@@ -180,13 +181,15 @@ class FastFoodEnv(gym.Env):
                 idle_b,
                 idle_f,
                 idle_i,
+                pending_b,
+                pending_f,
+                pending_i,
             ],
             dtype=np.float32,
         )
-        return obs
+        return np.clip(obs, 0.0, 1.0)
 
     def step(self, action):
-        # Action is now a MultiDiscrete list [Burger, Fries, Ice Cream]
         if action[0] == 1:
             self.env.process(self.rl_cook_burger())
         if action[1] == 1:
@@ -196,6 +199,7 @@ class FastFoodEnv(gym.Env):
 
         self.env.run(until=self.env.now + 10)
 
+        # 1. Fetch current totals
         current_revenue = sum(self.stats["captured_revenue"])
         current_waste = (
             (len(self.stats["wasted_burgers"]) * COST_WASTED_BURGER)
@@ -203,47 +207,36 @@ class FastFoodEnv(gym.Env):
             + (len(self.stats["wasted_ice_cream"]) * COST_WASTED_ICE_CREAM)
         )
         current_lost = sum(self.stats["lost_revenue"])
+        current_walkouts = len(self.stats["balked"]) + len(self.stats["reneged"])
+        current_served = len(self.stats["captured_revenue"])
 
+        # 2. Calculate deltas (what happened in the last 10 seconds)
         delta_rev = current_revenue - self.last_revenue
         delta_waste = current_waste - self.last_waste_cost
         delta_lost = current_lost - self.last_lost_revenue
+        delta_walkouts = current_walkouts - self.last_walkouts
+        delta_served = current_served - self.last_served
 
+        # 3. Base Financial Reward
         financial_reward = (delta_rev - delta_waste - delta_lost) / 10.0
 
-        # Dense Reward Shaping
-        q_len = len(self.restaurant.cashier.queue)
-        waiting_for_food = self.restaurant.customers_waiting_for_food
-        queue_penalty = -0.005 * q_len
-        wait_penalty = -0.01 * waiting_for_food
+        # 4. FIX 1: The Stick (Reputation Penalty)
+        # Punish doing nothing. Walk-outs now carry a massive flat penalty beyond just lost revenue.
+        reputation_penalty = delta_walkouts * 5.0
 
-        burger_count = len(self.restaurant.burger_shelf.items)
-        fries_count = len(self.restaurant.fries_shelf.items)
-        ice_cream_count = len(self.restaurant.ice_cream_shelf.items)
+        # 5. FIX 2: The Carrot (Service Bonus)
+        # Reward taking action. Give a small flat bonus for every successfully completed order.
+        served_bonus = delta_served * 2.0
 
-        stockout_penalty = 0.0
-        if burger_count == 0:
-            stockout_penalty -= 0.2
-        if fries_count == 0:
-            stockout_penalty -= 0.05
-        if ice_cream_count == 0:
-            stockout_penalty -= 0.05
+        # Grand Total Calculation (Dense Shaping Removed)
+        total_reward = financial_reward - reputation_penalty + served_bonus
 
-        overstock_penalty = 0.0
-        if burger_count > TARGET_BURGER_INV:
-            overstock_penalty -= 0.05 * (burger_count - TARGET_BURGER_INV)
-        if fries_count > TARGET_FRIES_INV:
-            overstock_penalty -= 0.05 * (fries_count - TARGET_FRIES_INV)
-        if ice_cream_count > TARGET_ICE_CREAM_INV:
-            overstock_penalty -= 0.05 * (ice_cream_count - TARGET_ICE_CREAM_INV)
-
-        shaping_reward = (
-            queue_penalty + wait_penalty + stockout_penalty + overstock_penalty
-        )
-        total_reward = financial_reward + shaping_reward
-
+        # Update trackers
         self.last_revenue = current_revenue
         self.last_waste_cost = current_waste
         self.last_lost_revenue = current_lost
+        self.last_walkouts = current_walkouts
+        self.last_served = current_served
 
         terminated = self.env.now >= SIM_TIME
         truncated = False
@@ -259,9 +252,8 @@ class FastFoodEnv(gym.Env):
 
         if self.screen is None:
             pygame.init()
-            # Widened screen to 1200px to fit 3 prep stations comfortably
             self.screen = pygame.display.set_mode((1200, 700))
-            pygame.display.set_caption("🍔 AI Kitchen Manager Pro - Ice Cream Update")
+            pygame.display.set_caption("AI Kitchen Manager Pro - Lunch Rush Edition")
             self.clock = pygame.time.Clock()
             self.font = pygame.font.SysFont("Arial", 16, bold=True)
             self.title_font = pygame.font.SysFont("Arial", 14, bold=True)
@@ -284,7 +276,7 @@ class FastFoodEnv(gym.Env):
         total_counter_width = i_table_x + i_table_w - b_table_x
 
         pygame.draw.rect(
-            self.screen, FLOOR_COLOR, (40, 70, 1120, 600), border_radius=15
+            self.screen, FLOOR_COLOR, (40, 90, 1120, 580), border_radius=15
         )
         pygame.draw.rect(
             self.screen,
@@ -369,7 +361,6 @@ class FastFoodEnv(gym.Env):
             max_cols = i_table_w // 20
             row, col = i // max_cols, i % max_cols
             ix, iy = i_table_x + 10 + (col * 20), 185 - (row * 18)
-            # Draw a cute little ice cream (Cone + Vanilla Scoop)
             pygame.draw.polygon(
                 self.screen,
                 (210, 180, 140),
@@ -427,14 +418,17 @@ class FastFoodEnv(gym.Env):
                 (pickup_x, 390 + (5 * 35)),
             )
 
-        # --- 5. TOP UI DASHBOARD ---
-        pygame.draw.rect(self.screen, UI_BAR_COLOR, (0, 0, 1200, 50))
+        # --- 5. EXPANDED UI DASHBOARD ---
+        pygame.draw.rect(
+            self.screen, UI_BAR_COLOR, (0, 0, 1200, 70)
+        )  # Taller bar for two rows
 
+        # Top Row: Standard Telemetry
         self.screen.blit(
             self.font.render(
                 f"CLOCK: {self.env.now:.0f}s / {SIM_TIME}s", True, TEXT_COLOR
             ),
-            (20, 15),
+            (20, 10),
         )
         self.screen.blit(
             self.font.render(
@@ -442,7 +436,7 @@ class FastFoodEnv(gym.Env):
                 True,
                 (46, 204, 113),
             ),
-            (250, 15),
+            (250, 10),
         )
 
         waste_cost = (
@@ -452,7 +446,7 @@ class FastFoodEnv(gym.Env):
         )
         self.screen.blit(
             self.font.render(f"WASTE: ${waste_cost:.2f}", True, (241, 196, 15)),
-            (500, 15),
+            (500, 10),
         )
         self.screen.blit(
             self.font.render(
@@ -460,8 +454,22 @@ class FastFoodEnv(gym.Env):
                 True,
                 (231, 76, 60),
             ),
-            (750, 15),
+            (750, 10),
         )
+
+        # Bottom Row: Pending Orders Vision
+        pending_text = (
+            f"PENDING TICKETS ->  "
+            f"BURGERS: {self.restaurant.pending_burgers}  |  "
+            f"FRIES: {self.restaurant.pending_fries}  |  "
+            f"ICE CREAM: {self.restaurant.pending_ice_cream}"
+        )
+
+        # Color it red if things are getting crazy (e.g. > 10 burgers waiting)
+        warning_color = (
+            (231, 76, 60) if self.restaurant.pending_burgers > 10 else (52, 152, 219)
+        )
+        self.screen.blit(self.font.render(pending_text, True, warning_color), (20, 40))
 
         if self.render_mode == "human":
             pygame.display.flip()

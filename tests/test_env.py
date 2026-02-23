@@ -26,8 +26,8 @@ def test_environment_spaces(rl_env):
     assert rl_env.action_space.shape == (3,)
     assert (rl_env.action_space.nvec == [2, 2, 2]).all()
 
-    # Observation space should now be Box(9,)
-    assert rl_env.observation_space.shape == (9,)
+    # Observation space should now be Box(12,)
+    assert rl_env.observation_space.shape == (12,)
     assert (rl_env.observation_space.low == 0.0).all()
     assert (rl_env.observation_space.high == 1.0).all()
 
@@ -37,7 +37,7 @@ def test_reset_function(rl_env):
     obs, info = rl_env.reset()
 
     assert isinstance(obs, np.ndarray)
-    assert obs.shape == (9,)
+    assert obs.shape == (12,)
     assert isinstance(info, dict)
     assert rl_env.env.now == 0
 
