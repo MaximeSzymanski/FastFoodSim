@@ -72,7 +72,7 @@ if __name__ == "__main__":
         exploration_fraction=0.1,
     )
 
-    total_timesteps = 500_000
+    total_timesteps = 1_000_000
     print("Beginning DQN training. Open TensorBoard to watch progress.")
 
     model.learn(

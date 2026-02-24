@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+
+# RL/ML
+models/
+tb_logs/
+stats/
+videos/
+
+# Project
+docs/build/
+.git/
+.dockerignore

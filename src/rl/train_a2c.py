@@ -2,7 +2,7 @@ import os
 
 from stable_baselines3 import A2C
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 from src.rl.FastFoodEnv import FastFoodEnv
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     num_cpu = 4
-    env = SubprocVecEnv([make_env() for i in range(num_cpu)])
+    env = DummyVecEnv([make_env() for i in range(num_cpu)])
 
     model = A2C(
         "MlpPolicy",
@@ -41,7 +41,7 @@ if __name__ == "__main__":
         learning_rate=0.0007,
     )
 
-    total_timesteps = 500_000
+    total_timesteps = 1_000_000
     print("Beginning A2C training. Open TensorBoard to watch progress!")
 
     model.learn(

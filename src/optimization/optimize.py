@@ -128,7 +128,8 @@ if __name__ == "__main__":
 
     print("\n" + "=" * 40)
     print("OPTIMIZATION COMPLETE")
-    print(f"Maximum Expected Profit (Avg over {N_SEEDS} days): ${study.best_value:.2f}")
+    print(f"Maximum Expected Profit (Avg over {N_SEEDS} days): ${
+            study.best_value:.2f}")
     print("Optimal Restaurant Setup:")
     for key, value in study.best_params.items():
         print(f"  - {key}: {value}")
