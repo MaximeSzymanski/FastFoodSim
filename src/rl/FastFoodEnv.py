@@ -1,3 +1,11 @@
+from src.sim.restaurant import FastFoodRestaurant
+from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
+from src.config import *
+from gymnasium import spaces
+import simpy
+import pygame
+import numpy as np
+import gymnasium as gym
 import os
 import random
 import sys
@@ -6,15 +14,6 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pygame")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
-import gymnasium as gym
-import numpy as np
-import pygame
-import simpy
-from gymnasium import spaces
-
-from src.config import *
-from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
-from src.sim.restaurant import FastFoodRestaurant
 
 BG_COLOR = (24, 24, 28)
 FLOOR_COLOR = (40, 42, 48)
@@ -476,12 +475,14 @@ class FastFoodEnv(gym.Env):
             + (len(self.stats["wasted_ice_cream"]) * COST_WASTED_ICE_CREAM)
         )
         self.screen.blit(
-            self.font.render(f"WASTE: ${waste_cost:.2f}", True, (241, 196, 15)),
+            self.font.render(f"WASTE: ${
+                    waste_cost:.2f}", True, (241, 196, 15)),
             (500, 10),
         )
         self.screen.blit(
             self.font.render(
-                f"WALK-OUTS: {len(self.stats['balked']) + len(self.stats['reneged'])}",
+                f"WALK-OUTS: {len(self.stats['balked']) +
+                              len(self.stats['reneged'])}",
                 True,
                 (231, 76, 60),
             ),

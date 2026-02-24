@@ -139,7 +139,8 @@ def generate_business_report(model_path, model_type="PPO", num_seeds=5):
         )
         ax2.fill_between(
             df_mean["time_min"],
-            np.maximum(0, df_mean[col] - df_std[col]),  # Floor at 0 for inventories
+            # Floor at 0 for inventories
+            np.maximum(0, df_mean[col] - df_std[col]),
             df_mean[col] + df_std[col],
             color=color,
             alpha=0.15,
@@ -202,9 +203,15 @@ def generate_business_report(model_path, model_type="PPO", num_seeds=5):
     print(f"📈 CONCRETE BUSINESS KPIs (Avg over {num_seeds} seeds)")
     print("=" * 50)
     print(f"Total Revenue:       ${final_rev_mean:.2f} ± ${final_rev_std:.2f}")
-    print(f"Total Waste Cost:    ${final_waste_mean:.2f} ± ${final_waste_std:.2f}")
-    print(f"Lost to Walkouts:    ${final_lost_mean:.2f} ± ${final_lost_std:.2f}")
-    print(f"NET SHIFT PROFIT:    ${final_profit_mean:.2f} ± ${final_profit_std:.2f}")
+    print(f"Total Waste Cost:    ${
+            final_waste_mean:.2f} ± ${
+            final_waste_std:.2f}")
+    print(f"Lost to Walkouts:    ${
+            final_lost_mean:.2f} ± ${
+            final_lost_std:.2f}")
+    print(f"NET SHIFT PROFIT:    ${
+            final_profit_mean:.2f} ± ${
+            final_profit_std:.2f}")
     print("=" * 50)
 
 

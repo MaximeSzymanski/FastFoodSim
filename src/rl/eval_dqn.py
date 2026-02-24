@@ -72,9 +72,8 @@ def main():
 
     env.close()
 
-    print(
-        f"Compiling {len(frames)} frames into a GIF... (this might take a few moments)"
-    )
+    print(f"Compiling {
+            len(frames)} frames into a GIF... (this might take a few moments)")
 
     imageio.mimsave(gif_path, frames, duration=100)
 

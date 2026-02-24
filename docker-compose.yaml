@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  # Base build configuration used by all services
+  x-base: &base_config
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fastfoodsim:latest
+    volumes:
+      - .:/app
+    environment:
+      - DIFFICULTY=${DIFFICULTY:-SIMPLE}
+      - PYTHONPATH=/app
+
+  # 1. AI Training Tournament
+  trainer:
+    <<: *base_config
+    container_name: fastfood_trainer
+    volumes:
+      - .:/app
+      - ./models:/app/models
+      - ./tb_logs:/app/tb_logs
+    # OPTION 2 FIX: Run as a module
+    command: python -m src.rl.train_all
+
+  # 2. Pygame Visualizer (GUI)
+  visualizer:
+    <<: *base_config
+    container_name: fastfood_visualizer
+    network_mode: "host"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - DIFFICULTY=${DIFFICULTY:-SIMPLE}
+    # Mount X11 socket for GUI pass-through (Linux)
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    # This was already correct!
+    command: python -m src.visualization.visualize_topdown
+
+  # 3. Business Reporter
+  reporter:
+    <<: *base_config
+    container_name: fastfood_reporter
+    # OPTION 2 FIX: Run as a module
+    command: python -m src.rl.generate_report

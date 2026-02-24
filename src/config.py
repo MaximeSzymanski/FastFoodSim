@@ -5,13 +5,15 @@ DIFFICULTY = os.getenv(
 )  # Sets the simulation difficulty level to SIMPLE or NIGHTMARE.
 
 SIM_TIME = 3600  # Total duration of the simulation in seconds.
-
 CASHIER_MIN = 20.0  # Minimum time in seconds to process a customer order.
 CASHIER_MAX = 120.0  # Maximum time in seconds to process a customer order.
-CASHIER_MODE = 60.0  # Most frequent time in seconds to process a customer order.
+# Most frequent time in seconds to process a customer order.
+CASHIER_MODE = 60.0
 
-ICE_CREAM_TIME = 15.0  # Time in seconds required to pour one batch of ice cream.
-ICE_CREAM_BATCH_SIZE = 1  # Number of ice cream units produced per cooking cycle.
+# Time in seconds required to pour one batch of ice cream.
+ICE_CREAM_TIME = 15.0
+# Number of ice cream units produced per cooking cycle.
+ICE_CREAM_BATCH_SIZE = 1
 TARGET_ICE_CREAM_INV = 8  # Desired inventory level for ice cream.
 PRICE_ICE_CREAM = 3.00  # Selling price of one ice cream unit.
 WAGE_ICE_CREAM_COOK = 14.00  # Hourly wage for the ice cream cook.
@@ -29,7 +31,8 @@ WAGE_FRIES_COOK = 15.00  # Hourly wage for a fry cook.
 
 if DIFFICULTY == "SIMPLE":
     ARRIVAL_AVG = 22.0  # Average time in seconds between customer arrivals.
-    MAX_QUEUE_LENGTH = 4  # Maximum number of people waiting before new customers balk.
+    # Maximum number of people waiting before new customers balk.
+    MAX_QUEUE_LENGTH = 4
     MAX_WAIT_TOLERANCE = (
         180.0  # Maximum time in seconds a customer will wait before reneging.
     )
@@ -42,9 +45,12 @@ if DIFFICULTY == "SIMPLE":
     BURGER_MODE = 45.0  # Most frequent time in seconds to cook a burger.
     FRIES_TIME = 150.0  # Time in seconds required to cook one batch of fries.
 
-    ICE_CREAM_SHELF_LIFE = 60.0  # Time in seconds before ice cream melts and is wasted.
-    FRIES_SHELF_LIFE = 180.0  # Time in seconds before fries go cold and are wasted.
-    BURGER_SHELF_LIFE = 300.0  # Time in seconds before burgers expire and are wasted.
+    # Time in seconds before ice cream melts and is wasted.
+    ICE_CREAM_SHELF_LIFE = 60.0
+    # Time in seconds before fries go cold and are wasted.
+    FRIES_SHELF_LIFE = 180.0
+    # Time in seconds before burgers expire and are wasted.
+    BURGER_SHELF_LIFE = 300.0
 
     COST_WASTED_BURGER = 3.50  # Financial penalty for a wasted burger.
     COST_WASTED_FRIES = 1.00  # Financial penalty for wasted fries.
@@ -52,7 +58,8 @@ if DIFFICULTY == "SIMPLE":
 
 else:
     ARRIVAL_AVG = 15.0  # Average time in seconds between customer arrivals.
-    MAX_QUEUE_LENGTH = 3  # Maximum number of people waiting before new customers balk.
+    # Maximum number of people waiting before new customers balk.
+    MAX_QUEUE_LENGTH = 3
     MAX_WAIT_TOLERANCE = (
         120.0  # Maximum time in seconds a customer will wait before reneging.
     )
@@ -65,9 +72,12 @@ else:
     BURGER_MODE = 55.0  # Most frequent time in seconds to cook a burger.
     FRIES_TIME = 180.0  # Time in seconds required to cook one batch of fries.
 
-    ICE_CREAM_SHELF_LIFE = 30.0  # Time in seconds before ice cream melts and is wasted.
-    FRIES_SHELF_LIFE = 120.0  # Time in seconds before fries go cold and are wasted.
-    BURGER_SHELF_LIFE = 180.0  # Time in seconds before burgers expire and are wasted.
+    # Time in seconds before ice cream melts and is wasted.
+    ICE_CREAM_SHELF_LIFE = 30.0
+    # Time in seconds before fries go cold and are wasted.
+    FRIES_SHELF_LIFE = 120.0
+    # Time in seconds before burgers expire and are wasted.
+    BURGER_SHELF_LIFE = 180.0
 
     COST_WASTED_BURGER = 5.00  # Financial penalty for a wasted burger.
     COST_WASTED_FRIES = 2.00  # Financial penalty for wasted fries.

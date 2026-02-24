@@ -1,3 +1,8 @@
+from src.sim.restaurant import FastFoodRestaurant
+from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
+from src.config import *
+import simpy
+import pygame
 import os
 import sys
 import warnings
@@ -5,12 +10,6 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="pygame")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
-import pygame
-import simpy
-
-from src.config import *
-from src.sim.processes import FoodItem, customer_arrivals, inventory_manager
-from src.sim.restaurant import FastFoodRestaurant
 
 BG_COLOR = (30, 30, 35)
 FLOOR_COLOR = (50, 50, 55)
@@ -192,7 +191,8 @@ def topdown_renderer(env, restaurant, stats, screen, clock, font):
             (100, 255, 100),
         )
         lost_text = font.render(
-            f"Customers Walked Out: {len(stats['balked']) + len(stats['reneged'])}",
+            f"Customers Walked Out: {len(stats['balked']) +
+                                     len(stats['reneged'])}",
             True,
             (255, 100, 100),
         )

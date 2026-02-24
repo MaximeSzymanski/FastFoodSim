@@ -26,9 +26,8 @@ def run_scripts():
             result = subprocess.run([sys.executable, "-m", module])
 
             if result.returncode != 0:
-                print(
-                    f"\nERROR: {module} exited with code {result.returncode}. Stopping tournament."
-                )
+                print(f"\nERROR: {module} exited with code {
+                        result.returncode}. Stopping tournament.")
                 break
 
         except KeyboardInterrupt:

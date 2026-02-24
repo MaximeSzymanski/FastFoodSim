@@ -3,7 +3,7 @@ import os
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 from src.rl.FastFoodEnv import FastFoodEnv
 
@@ -45,19 +45,19 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     num_cpu = 4
-    env = SubprocVecEnv([make_env() for i in range(num_cpu)])
+    env = DummyVecEnv([make_env() for i in range(num_cpu)])
 
     model = MaskablePPO(
         "MlpPolicy",
         env,
         verbose=0,
         tensorboard_log=log_dir,
-        learning_rate=0.0001,
+        learning_rate=0.0002,
         n_steps=2048,
         batch_size=64,
     )
 
-    total_timesteps = 500_000
+    total_timesteps = 1_000_000
     print(
         f"Beginning training for {total_timesteps} steps. Open TensorBoard to watch progress."
     )
