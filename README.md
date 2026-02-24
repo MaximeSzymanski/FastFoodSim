@@ -1,27 +1,34 @@
-# Fast Food Simulation & AI Optimization
+# 🍔 Fast Food Simulation & AI Optimization
 
-This project is a high-fidelity *Discrete Event Simulation (DES)* of a fast-food restaurant built with *SimPy*. It features an autonomous staffing and inventory optimization engine powered by *Optuna* and a *Reinforcement Learning (RL)* environment compatible with *Gymnasium* for training AI managers.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Stable Baselines3](https://img.shields.io/badge/RL-Stable_Baselines3-purple)](https://stable-baselines3.readthedocs.io/)
+[![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?logo=docker)](https://www.docker.com/)
+[![Medium Article](https://img.shields.io/badge/Read_the_Medium_Article-Black?style=for-the-badge&logo=medium)](https://medium.com/@your_username/your-article-link)
 
-## Trained RL Agent Performance Video
-![Video](videos/video.gif)
+This project is a high-fidelity **Discrete-Event Simulation (DES)** of a high-volume fast-food kitchen built with **SimPy**. It features an autonomous staffing and inventory optimization engine powered by **Optuna**, and a custom **Reinforcement Learning (RL)** environment compatible with **Gymnasium** to train AI kitchen managers using Maskable PPO.
+
+📖 **Read the full technical breakdown on Medium:** [Optimizing Production-Line Management using Python](https://medium.com/@your_username/your-article-link)
+
+## 🎥 Trained RL Agent Performance
+![Trained Agent Visualization](videos/video.gif)
 
 ## 🏗 Project Structure
 
 The repository is organized into a modular `src` package to separate simulation logic, optimization, and AI training:
 
-* **`src/sim/`**: Contains the core simulation logic.
+* **`src/sim/`**: Contains the core discrete-event simulation logic.
     * `restaurant.py`: Defines the `FastFoodRestaurant` class, including human resources (cashiers, cooks) and physical inventory (shelves).
-    * `processes.py`: Manages the "life" of the simulation, including customer arrivals, cooking loops, and the active waste management system.
+    * `processes.py`: Manages the stochastic logic, including non-stationary customer arrivals (Poisson), cooking loops, and the active waste management system.
 * **`src/rl/`**: The Reinforcement Learning suite.
-    * `FastFoodEnv.py`: A Gymnasium-wrapped environment with normalized observations and delta-based rewards.
-    * `train.py`: The entry point for training neural networks to manage restaurant operations.
-* **`src/optimization/`**: Staffing and inventory optimization using Optuna to maximize restaurant profit.
-* **`tests/`**: A comprehensive `pytest` suite covering all components.
+    * `FastFoodEnv.py`: A Gymnasium-wrapped environment utilizing Action Masking, normalized observations, and delta-based reward shaping.
+    * `train_ppo.py`: The entry point for training the Stable-Baselines3 agent.
+* **`src/optimization/`**: Hyperparameter tuning using Optuna to maximize expected restaurant profit.
+* **`tests/`**: A comprehensive `pytest` suite validating the physics engine and RL environment compliance.
 
 ## 🚀 Key Code Snippets
 
 ### 1. The Active Waste Manager
-This process monitors the freshness of inventory and handles waste calculation, which is critical for accurate profit modeling.
+This process monitors the freshness of perishable inventory and handles waste calculation, preventing the RL agent from cheating the system by over-producing food.
 
 ```python
 def inventory_manager(env, restaurant, stats):
@@ -38,50 +45,98 @@ def inventory_manager(env, restaurant, stats):
                 valid_burgers.append(item)
         restaurant.burger_shelf.items = valid_burgers
 ```
-### 2. RL Observation Scaling
-Ensuring observations are within a `[0, 1]` range prevents gradient explosion and speeds up Neural Network convergence.
 
-```python 
-def _get_obs(self):
-    """Gathers and scales 7 observations to a [0, 1] range."""
-    queue_len = len(self.restaurant.cashier.queue) / 20.0
-    burger_inv = len(self.restaurant.burger_shelf.items) / 30.0
-    time_pct = self.env.now / SIM_TIME
-    busy_cashiers = self.restaurant.cashier.count / self.num_cashiers
+### 2. Action Masking Logic
 
-    obs = np.array([
-        queue_len, 
-        burger_inv, 
-        idle_burgers, 
-        time_pct, 
-        busy_cashiers
-    ])
-    return np.clip(obs, 0.0, 1.0)
+Standard RL algorithms fail in DES environments by attempting to send commands to busy workers. Masking dynamically filters out invalid actions, drastically speeding up convergence.
+
+```python
+def action_masks(self):
+    """Generates a boolean mask indicating which actions are currently valid."""
+    idle_b = self.num_burger_cooks - self.restaurant.burger_cook.count
+    idle_f = self.num_fries_cooks - self.restaurant.fries_cook.count
+    idle_i = self.num_ice_cream_cooks - self.restaurant.ice_cream_cook.count
+
+    return np.array([
+        True, idle_b > 0, 
+        True, idle_f > 0, 
+        True, idle_i > 0
+    ], dtype=bool)
 ```
 
-## 🛠 Usage & Testing
+## 🛠 Usage & Installation
 
-### Installation
-Ensure you are using a virtual environment (Conda or venv) with Python 3.12+.
+### Option 1: Docker (Recommended for Training)
+The most efficient way to run the headless hyperparameter tuning and AI training is via the containerized pipeline. 
+
 ```bash
-pip install simpy optuna gymnasium numpy pytest
+# Build the images
+docker compose build
+
+# Run the training and reporting containers in the background
+docker compose up -d
+
+# Monitor the training progress live
+tensorboard --logdir ./tb_logs/
 ```
 
-### Running Tests
+### Option 2: Local Setup (Required for Pygame GUI)
 
-The project includes a robust suite of 26 tests. To ensure the simulation logic and RL environment are functioning correctly, run:
+To watch the trained agent manage the kitchen in real-time, the project must be run locally to allow Pygame to access your machine's display drivers.
+
+Ensure you are using Python 3.10+.
+
 ```bash
- python -m pytest tests/
+# Clone the repository
+git clone [https://github.com/yourusername/fast-food-rl.git](https://github.com/yourusername/fast-food-rl.git)
+cd fast-food-rl
+
+# Set up a virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Staffing Optimization
-To run the Optuna study and find the most profitable number of cashiers and cooks for your restaurant:
+## 🧪 Execution Commands
+
+### Run the Test Suite (26 core tests):
+
 ```bash
-  python -m src.optimization.optimize
+python -m pytest tests/
 ```
 
-### AI Training
-To start training the Reinforcement Learning agent using the Gymnasium environment:
+### Run Optuna Staffing Optimization:
+
 ```bash
-  python -m src.rl.train
+python -m src.optimization.optimize
 ```
+
+### Train the Maskable PPO Agent:
+
+```bash
+python -m src.rl.train_ppo
+```
+
+## 💻 Tech Stack
+
+* **Simulation Engine:** [SimPy](https://simpy.readthedocs.io/) (Discrete-Event Simulation)
+* **Reinforcement Learning:** [Gymnasium](https://gymnasium.farama.org/), [Stable-Baselines3](https://stable-baselines3.readthedocs.io/), [SB3-Contrib](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib)
+* **Hyperparameter Optimization:** [Optuna](https://optuna.org/)
+* **GUI & Visualization:** [Pygame](https://www.pygame.org/), [TensorBoard](https://www.tensorflow.org/tensorboard)
+* **Data Science:** NumPy, Pandas, Matplotlib
+* **DevOps:** Docker, Docker Compose, Pytest
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/yourusername/fast-food-rl/issues) if you want to contribute to the digital twin's complexity or improve the reward shaping logic.
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+*Developed by [Maxime Szymanski](https://github.com/MaximeSzymanski)*
