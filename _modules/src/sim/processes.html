@@ -1,0 +1,374 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>src.sim.processes &mdash; FastFoodSim 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=8d563738"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            FastFoodSim
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Project Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration &amp; Difficulty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../optimization.html">Staffing Optimization (Optuna)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rl.html">Reinforcement Learning</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">src</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">FastFoodSim</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">src.sim.processes</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for src.sim.processes</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">simpy</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.config</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.sim.restaurant</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastFoodRestaurant</span>
+
+
+<div class="viewcode-block" id="FoodItem">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.FoodItem">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FoodItem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a food item created in the simulation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        creation_time (float): The exact simulation time the food item was created.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">creation_time</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">creation_time</span> <span class="o">=</span> <span class="n">creation_time</span></div>
+
+
+
+<div class="viewcode-block" id="fry_cook_loop">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.fry_cook_loop">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">fry_cook_loop</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Continuously manages the fry cooking process to maintain target inventory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance containing the fry shelf.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Timeout: The time delay required to cook the fries or wait.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">restaurant</span><span class="o">.</span><span class="n">fries_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">TARGET_FRIES_INV</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">FRIES_TIME</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">FRIES_BATCH_SIZE</span><span class="p">):</span>
+                <span class="n">restaurant</span><span class="o">.</span><span class="n">fries_shelf</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">FoodItem</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">now</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="burger_cook_loop">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.burger_cook_loop">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">burger_cook_loop</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Continuously manages the burger cooking process to maintain target inventory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance containing the burger shelf.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Timeout: The time delay required to cook the burgers or wait.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">restaurant</span><span class="o">.</span><span class="n">burger_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">TARGET_BURGER_INV</span><span class="p">:</span>
+            <span class="n">burger_time</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">triangular</span><span class="p">(</span><span class="n">BURGER_MIN</span><span class="p">,</span> <span class="n">BURGER_MAX</span><span class="p">,</span> <span class="n">BURGER_MODE</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">burger_time</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">BURGER_BATCH_SIZE</span><span class="p">):</span>
+                <span class="n">restaurant</span><span class="o">.</span><span class="n">burger_shelf</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">FoodItem</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">now</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ice_cream_cook_loop">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.ice_cream_cook_loop">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">ice_cream_cook_loop</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Continuously manages the ice cream pouring process to maintain target inventory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance containing the ice cream shelf.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Timeout: The time delay required to pour the ice cream or wait.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">restaurant</span><span class="o">.</span><span class="n">ice_cream_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">TARGET_ICE_CREAM_INV</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">ICE_CREAM_TIME</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ICE_CREAM_BATCH_SIZE</span><span class="p">):</span>
+                <span class="n">restaurant</span><span class="o">.</span><span class="n">ice_cream_shelf</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">FoodItem</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">now</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="inventory_manager">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.inventory_manager">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">inventory_manager</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Periodically checks food shelves and discards expired items.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance containing the food shelves.</span>
+<span class="sd">        stats (dict): The dictionary tracking simulation statistics, including waste.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Timeout: The time interval between inventory checks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>
+
+        <span class="n">valid_burgers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">burger_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span> <span class="o">-</span> <span class="n">item</span><span class="o">.</span><span class="n">creation_time</span> <span class="o">&gt;</span> <span class="n">BURGER_SHELF_LIFE</span><span class="p">:</span>
+                <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;wasted_burgers&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">valid_burgers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">restaurant</span><span class="o">.</span><span class="n">burger_shelf</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="n">valid_burgers</span>
+
+        <span class="n">valid_fries</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">fries_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span> <span class="o">-</span> <span class="n">item</span><span class="o">.</span><span class="n">creation_time</span> <span class="o">&gt;</span> <span class="n">FRIES_SHELF_LIFE</span><span class="p">:</span>
+                <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;wasted_fries&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">valid_fries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">restaurant</span><span class="o">.</span><span class="n">fries_shelf</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="n">valid_fries</span>
+
+        <span class="n">valid_ice_cream</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">ice_cream_shelf</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span> <span class="o">-</span> <span class="n">item</span><span class="o">.</span><span class="n">creation_time</span> <span class="o">&gt;</span> <span class="n">ICE_CREAM_SHELF_LIFE</span><span class="p">:</span>
+                <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;wasted_ice_cream&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">valid_ice_cream</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+        <span class="n">restaurant</span><span class="o">.</span><span class="n">ice_cream_shelf</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="n">valid_ice_cream</span></div>
+
+
+
+<div class="viewcode-block" id="grab_food_from_shelf">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.grab_food_from_shelf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">grab_food_from_shelf</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">shelf</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retrieves a food item from a specified shelf.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        shelf (simpy.Store): The specific inventory shelf to retrieve the item from.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Get: An event representing the retrieval of a food item.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">food</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">shelf</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">food</span></div>
+
+
+
+<div class="viewcode-block" id="customer_journey">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.customer_journey">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">customer_journey</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simulates the entire journey of a single customer through the restaurant.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        name (str): The unique identifier for the customer.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance.</span>
+<span class="sd">        stats (dict): The dictionary tracking simulation statistics.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Event: Various simulation events representing waiting, ordering, and picking up food.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">arrival_time</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span>
+
+    <span class="n">num_burgers</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choices</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">num_fries</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choices</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">num_ice_cream</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choices</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="mi">70</span><span class="p">,</span> <span class="mi">30</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">num_burgers</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_fries</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_ice_cream</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">num_burgers</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">order_price</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">num_burgers</span> <span class="o">*</span> <span class="n">PRICE_BURGER</span><span class="p">)</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">num_fries</span> <span class="o">*</span> <span class="n">PRICE_FRIES</span><span class="p">)</span>
+        <span class="o">+</span> <span class="p">(</span><span class="n">num_ice_cream</span> <span class="o">*</span> <span class="n">PRICE_ICE_CREAM</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">restaurant</span><span class="o">.</span><span class="n">cashier</span><span class="o">.</span><span class="n">queue</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">MAX_QUEUE_LENGTH</span><span class="p">:</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;balked&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;lost_revenue&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_price</span><span class="p">)</span>
+        <span class="k">return</span>
+    <span class="k">if</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">customers_waiting_for_food</span> <span class="o">&gt;=</span> <span class="n">MAX_ORDER_WAITING_FOR_FOOD</span><span class="p">:</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;balked&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;lost_revenue&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_price</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="k">with</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">cashier</span><span class="o">.</span><span class="n">request</span><span class="p">()</span> <span class="k">as</span> <span class="n">req</span><span class="p">:</span>
+        <span class="n">time_pct</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span> <span class="o">/</span> <span class="n">SIM_TIME</span>
+        <span class="k">if</span> <span class="mf">0.33</span> <span class="o">&lt;=</span> <span class="n">time_pct</span> <span class="o">&lt;=</span> <span class="mf">0.66</span><span class="p">:</span>
+            <span class="n">current_patience</span> <span class="o">=</span> <span class="n">MAX_WAIT_TOLERANCE</span> <span class="o">*</span> <span class="mf">0.5</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_patience</span> <span class="o">=</span> <span class="n">MAX_WAIT_TOLERANCE</span>
+
+        <span class="n">patience_timer</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">current_patience</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">req</span> <span class="o">|</span> <span class="n">patience_timer</span>
+
+        <span class="k">if</span> <span class="n">req</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;reneged&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;lost_revenue&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_price</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="n">order_time</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">triangular</span><span class="p">(</span><span class="n">CASHIER_MIN</span><span class="p">,</span> <span class="n">CASHIER_MAX</span><span class="p">,</span> <span class="n">CASHIER_MODE</span><span class="p">)</span>
+        <span class="n">order_time</span> <span class="o">+=</span> <span class="p">(</span><span class="n">num_burgers</span> <span class="o">+</span> <span class="n">num_fries</span> <span class="o">+</span> <span class="n">num_ice_cream</span><span class="p">)</span> <span class="o">*</span> <span class="mf">5.0</span>
+        <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">order_time</span><span class="p">)</span>
+
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_burgers</span> <span class="o">+=</span> <span class="n">num_burgers</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_fries</span> <span class="o">+=</span> <span class="n">num_fries</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_ice_cream</span> <span class="o">+=</span> <span class="n">num_ice_cream</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">customers_waiting_for_food</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">food_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_burgers</span><span class="p">):</span>
+        <span class="n">food_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">grab_food_from_shelf</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">burger_shelf</span><span class="p">))</span>
+        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_fries</span><span class="p">):</span>
+        <span class="n">food_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">grab_food_from_shelf</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">fries_shelf</span><span class="p">))</span>
+        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_ice_cream</span><span class="p">):</span>
+        <span class="n">food_tasks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">grab_food_from_shelf</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="o">.</span><span class="n">ice_cream_shelf</span><span class="p">))</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">food_tasks</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">simpy</span><span class="o">.</span><span class="n">events</span><span class="o">.</span><span class="n">AllOf</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">food_tasks</span><span class="p">)</span>
+
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_burgers</span> <span class="o">-=</span> <span class="n">num_burgers</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_fries</span> <span class="o">-=</span> <span class="n">num_fries</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">pending_ice_cream</span> <span class="o">-=</span> <span class="n">num_ice_cream</span>
+    <span class="n">restaurant</span><span class="o">.</span><span class="n">customers_waiting_for_food</span> <span class="o">-=</span> <span class="mi">1</span>
+
+    <span class="n">departure_time</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span>
+    <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;wait_times&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">departure_time</span> <span class="o">-</span> <span class="n">arrival_time</span><span class="p">)</span>
+    <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;captured_revenue&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">order_price</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="customer_arrivals">
+<a class="viewcode-back" href="../../../src.sim.html#src.sim.processes.customer_arrivals">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">customer_arrivals</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generates a continuous stream of arriving customers based on the time of day.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        env (simpy.Environment): The simulation environment.</span>
+<span class="sd">        restaurant (FastFoodRestaurant): The restaurant instance.</span>
+<span class="sd">        stats (dict): The dictionary tracking simulation statistics.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        simpy.events.Timeout: The time delay before the next customer arrives.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">time_pct</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span> <span class="o">/</span> <span class="n">SIM_TIME</span>
+
+        <span class="k">if</span> <span class="mf">0.33</span> <span class="o">&lt;=</span> <span class="n">time_pct</span> <span class="o">&lt;=</span> <span class="mf">0.66</span><span class="p">:</span>
+            <span class="n">current_arrival_rate</span> <span class="o">=</span> <span class="n">ARRIVAL_AVG</span> <span class="o">*</span> <span class="mf">0.4</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_arrival_rate</span> <span class="o">=</span> <span class="n">ARRIVAL_AVG</span> <span class="o">*</span> <span class="mf">1.5</span>
+
+        <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">expovariate</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">current_arrival_rate</span><span class="p">))</span>
+
+        <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Customer </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">customer_journey</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">restaurant</span><span class="p">,</span> <span class="n">stats</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Maxime Szymanski.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
