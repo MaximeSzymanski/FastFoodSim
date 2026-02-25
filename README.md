@@ -3,11 +3,12 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Stable Baselines3](https://img.shields.io/badge/RL-Stable_Baselines3-purple)](https://stable-baselines3.readthedocs.io/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?logo=docker)](https://www.docker.com/)
-[![Medium Article](https://img.shields.io/badge/Read_the_Medium_Article-Black?style=for-the-badge&logo=medium)](https://medium.com/@your_username/your-article-link)
+[![Documentation](https://img.shields.io/badge/Docs-GitHub_Pages-brightgreen)](https://maximeszymanski.github.io/FastFoodSim/)
+[![Medium Article](https://img.shields.io/badge/Read_the_Medium_Article-Black?style=for-the-badge&logo=medium)](https://medium.com/@maxime.szymanski/optimizing-production-line-management-using-python-502843113e4a)
 
 This project is a high-fidelity **Discrete-Event Simulation (DES)** of a high-volume fast-food kitchen built with **SimPy**. It features an autonomous staffing and inventory optimization engine powered by **Optuna**, and a custom **Reinforcement Learning (RL)** environment compatible with **Gymnasium** to train AI kitchen managers using Maskable PPO.
 
-📖 **Read the full technical breakdown on Medium:** [Optimizing Production-Line Management using Python](https://medium.com/@maxime.szymanski/optimizing-production-line-management-using-python-502843113e4a)
+📖 **[Read the Full Technical Documentation Here](https://maximeszymanski.github.io/FastFoodSim/)**
 
 ## 🎥 Trained RL Agent Performance
 ![Trained Agent Visualization](videos/video.gif)
