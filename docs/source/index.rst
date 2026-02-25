@@ -1,9 +1,9 @@
-.. FastFoodSim documentation master file, created by
-   sphinx-quickstart on Mon Feb 23 17:25:49 2026.
-
+.. FastFoodSim documentation master file
 
 FastFoodSim Documentation
 =========================
+
+Welcome to the official documentation for **FastFoodSim**, a high-fidelity digital twin of a fast-food kitchen.
 
 .. toctree::
    :maxdepth: 2
@@ -11,6 +11,7 @@ FastFoodSim Documentation
 
    introduction
    config
+   deployment
    optimization
    rl
 
