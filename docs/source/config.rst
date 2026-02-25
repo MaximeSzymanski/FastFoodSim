@@ -1,19 +1,13 @@
-Configuration & Difficulty
-==========================
+Configuration
+=============
 
-The simulation parameters are defined in ``src/config.py``. This file acts as the "Source of Truth" for the restaurant's physical laws.
+FastFoodSim relies on a centralized configuration system to scale the complexity of the digital twin.
 
-The Difficulty Toggle
----------------------
-The ``DIFFICULTY`` constant determines the margins of error for the agent.
+Difficulty Levels
+-----------------
+The simulation can be instantiated with varying levels of difficulty:
 
-.. warning::
-   Switching to **NIGHTMARE** mode significantly reduces customer patience. If the agent does not maintain a "buffer" of food, walk-outs will cascade, leading to a "death spiral" in profit.
+* **SIMPLE**: Standard lunch rush focusing primarily on the Burger and Fry stations.
+* **HARD**: Introduces the Dessert Station (Ice Cream), stricter food expiration times, and higher variance in customer patience (reneging).
 
-Key Parameters
---------------
-* **Shelf Life**: Determines how long an item remains in a ``simpy.Store`` before the ``inventory_manager`` removes it as waste.
-* **Balking Limits**: If the cashier queue exceeds ``MAX_QUEUE_LENGTH``, customers leave immediately without spending.
-
-.. tip::
-   When debugging new features, set ``DIFFICULTY="SIMPLE"`` to ensure the underlying logic works before subjecting the agent to the punishing Nightmare constraints.
+When running locally or via Docker, ensure your environment variables match your intended testing criteria.
