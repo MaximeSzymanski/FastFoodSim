@@ -16,12 +16,11 @@
       <script src="_static/documentation_options.js?v=8d563738"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Reinforcement Learning" href="rl.html" />
-    <link rel="prev" title="Configuration &amp; Difficulty" href="config.html" /> 
+    <link rel="prev" title="Docker Deployment" href="deployment.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,7 +45,8 @@
               <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Project Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration &amp; Difficulty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Docker Deployment</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Staffing Optimization (Optuna)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#optimization-logic">Optimization Logic</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#search-space">Search Space</a></li>
@@ -89,8 +89,8 @@
 <p>Finding the “Golden Ratio” of staff is a high-dimensional search problem. We use <strong>Optuna</strong> to automate this.</p>
 <section id="optimization-logic">
 <h2>Optimization Logic<a class="headerlink" href="#optimization-logic" title="Link to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">objective</span></code> function tries to maximize:
-<span class="math notranslate nohighlight">\(Profit = Revenue - (Wages + Waste + LostRevenue)\)</span></p>
+<p>The objective function tries to maximize the net profit equation:</p>
+<p><strong>Profit = Revenue - (Wages + Waste + LostRevenue)</strong></p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Wages are calculated per second. Having too many staff members (e.g., 5 burger cooks) may result in high service levels but negative net profit due to the high “burn rate” of hourly wages.</p>
@@ -98,14 +98,16 @@
 </section>
 <section id="search-space">
 <h2>Search Space<a class="headerlink" href="#search-space" title="Link to this heading"></a></h2>
-<p>Optuna suggests integers for:
-1. <strong>Staff Count</strong>: Cashiers, Burger Cooks, Fry Cooks, and Ice Cream Cooks.
-2. <strong>Inventory Targets</strong>: The “Par” levels that the static manager tries to maintain.</p>
+<p>Optuna suggests integers for:</p>
+<ol class="arabic simple">
+<li><p><strong>Staff Count</strong>: Cashiers, Burger Cooks, Fry Cooks, and Ice Cream Cooks.</p></li>
+<li><p><strong>Inventory Targets</strong>: The “Par” levels that the static manager tries to maintain.</p></li>
+</ol>
 </section>
 <section id="running-a-study">
 <h2>Running a Study<a class="headerlink" href="#running-a-study" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># From the project root</span>
-<span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">src</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">optimize</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># From the project root</span>
+python<span class="w"> </span>-m<span class="w"> </span>src.optimization.optimize
 </pre></div>
 </div>
 <div class="admonition note">
@@ -119,7 +121,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="config.html" class="btn btn-neutral float-left" title="Configuration &amp; Difficulty" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="deployment.html" class="btn btn-neutral float-left" title="Docker Deployment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="rl.html" class="btn btn-neutral float-right" title="Reinforcement Learning" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

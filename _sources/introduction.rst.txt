@@ -4,7 +4,7 @@ Project Overview
 **FastFoodSim** is a sophisticated Discrete-Event Simulation (DES) designed to model the operational complexity of high-volume food service. It serves as a benchmark for Reinforcement Learning (RL) agents tasked with real-time resource management.
 
 .. note::
-   This project was designed to bridge the gap between pure algorithmic RL and real-world Operations Research (OR) constraints.
+   This project was designed to bridge the gap between pure algorithmic RL and real-world Operations Research (OR) constraints. Read the full technical breakdown in our Medium article: `Optimizing Production-Line Management using Python <https://medium.com/@your_username/your-article-link>`_.
 
 System Architecture
 -------------------
@@ -12,6 +12,8 @@ The core simulation engine is powered by **SimPy**. Unlike standard "step-based"
 
 * **Non-Stationary Poisson Process**: Customer arrivals follow a dynamic rate that peaks during the "Lunch Rush" (20–40 minute mark).
 * **Stochastic Service Times**: Cashier interactions and burger cooking utilize triangular distributions to simulate human variability.
+
+
 
 .. image:: ../../business_report.png
    :width: 700

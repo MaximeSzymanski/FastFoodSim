@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuration &amp; Difficulty &mdash; FastFoodSim 1.0.0 documentation</title>
+  <title>Configuration &mdash; FastFoodSim 1.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Staffing Optimization (Optuna)" href="optimization.html" />
+    <link rel="next" title="Docker Deployment" href="deployment.html" />
     <link rel="prev" title="Project Overview" href="introduction.html" /> 
 </head>
 
@@ -45,11 +45,11 @@
               <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Project Overview</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration &amp; Difficulty</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#the-difficulty-toggle">The Difficulty Toggle</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#key-parameters">Key Parameters</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#difficulty-levels">Difficulty Levels</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Docker Deployment</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimization.html">Staffing Optimization (Optuna)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl.html">Reinforcement Learning</a></li>
 </ul>
@@ -72,7 +72,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Configuration &amp; Difficulty</li>
+      <li class="breadcrumb-item active">Configuration</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/config.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -82,27 +82,17 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="configuration-difficulty">
-<h1>Configuration &amp; Difficulty<a class="headerlink" href="#configuration-difficulty" title="Link to this heading"></a></h1>
-<p>The simulation parameters are defined in <code class="docutils literal notranslate"><span class="pre">src/config.py</span></code>. This file acts as the “Source of Truth” for the restaurant’s physical laws.</p>
-<section id="the-difficulty-toggle">
-<h2>The Difficulty Toggle<a class="headerlink" href="#the-difficulty-toggle" title="Link to this heading"></a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">DIFFICULTY</span></code> constant determines the margins of error for the agent.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Switching to <strong>NIGHTMARE</strong> mode significantly reduces customer patience. If the agent does not maintain a “buffer” of food, walk-outs will cascade, leading to a “death spiral” in profit.</p>
-</div>
-</section>
-<section id="key-parameters">
-<h2>Key Parameters<a class="headerlink" href="#key-parameters" title="Link to this heading"></a></h2>
+  <section id="configuration">
+<h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h1>
+<p>FastFoodSim relies on a centralized configuration system to scale the complexity of the digital twin.</p>
+<section id="difficulty-levels">
+<h2>Difficulty Levels<a class="headerlink" href="#difficulty-levels" title="Link to this heading"></a></h2>
+<p>The simulation can be instantiated with varying levels of difficulty:</p>
 <ul class="simple">
-<li><p><strong>Shelf Life</strong>: Determines how long an item remains in a <code class="docutils literal notranslate"><span class="pre">simpy.Store</span></code> before the <code class="docutils literal notranslate"><span class="pre">inventory_manager</span></code> removes it as waste.</p></li>
-<li><p><strong>Balking Limits</strong>: If the cashier queue exceeds <code class="docutils literal notranslate"><span class="pre">MAX_QUEUE_LENGTH</span></code>, customers leave immediately without spending.</p></li>
+<li><p><strong>SIMPLE</strong>: Standard lunch rush focusing primarily on the Burger and Fry stations.</p></li>
+<li><p><strong>HARD</strong>: Introduces the Dessert Station (Ice Cream), stricter food expiration times, and higher variance in customer patience (reneging).</p></li>
 </ul>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>When debugging new features, set <code class="docutils literal notranslate"><span class="pre">DIFFICULTY=&quot;SIMPLE&quot;</span></code> to ensure the underlying logic works before subjecting the agent to the punishing Nightmare constraints.</p>
-</div>
+<p>When running locally or via Docker, ensure your environment variables match your intended testing criteria.</p>
 </section>
 </section>
 
@@ -111,7 +101,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="introduction.html" class="btn btn-neutral float-left" title="Project Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="optimization.html" class="btn btn-neutral float-right" title="Staffing Optimization (Optuna)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="deployment.html" class="btn btn-neutral float-right" title="Docker Deployment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

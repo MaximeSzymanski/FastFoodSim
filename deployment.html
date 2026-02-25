@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FastFoodSim Documentation &mdash; FastFoodSim 1.0.0 documentation</title>
+  <title>Docker Deployment &mdash; FastFoodSim 1.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
@@ -19,7 +19,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Project Overview" href="introduction.html" /> 
+    <link rel="next" title="Staffing Optimization (Optuna)" href="optimization.html" />
+    <link rel="prev" title="Configuration" href="config.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -30,7 +31,7 @@
 
           
           
-          <a href="#" class="icon icon-home">
+          <a href="index.html" class="icon icon-home">
             FastFoodSim
           </a>
 <div role="search">
@@ -42,10 +43,13 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Project Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="deployment.html">Docker Deployment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Docker Deployment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#training-architecture">Training Architecture</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="optimization.html">Staffing Optimization (Optuna)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl.html">Reinforcement Learning</a></li>
 </ul>
@@ -60,17 +64,17 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">FastFoodSim</a>
+          <a href="index.html">FastFoodSim</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">FastFoodSim Documentation</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Docker Deployment</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/deployment.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -78,55 +82,34 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="fastfoodsim-documentation">
-<h1>FastFoodSim Documentation<a class="headerlink" href="#fastfoodsim-documentation" title="Link to this heading"></a></h1>
-<p>Welcome to the official documentation for <strong>FastFoodSim</strong>, a high-fidelity digital twin of a fast-food kitchen.</p>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="introduction.html">Project Overview</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="introduction.html#system-architecture">System Architecture</a></li>
+  <section id="docker-deployment">
+<h1>Docker Deployment<a class="headerlink" href="#docker-deployment" title="Link to this heading"></a></h1>
+<p>To ensure consistent environment replication and bypass complex dependency compilation (like Atari emulators), FastFoodSim is fully containerized.</p>
+<section id="training-architecture">
+<h2>Training Architecture<a class="headerlink" href="#training-architecture" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">docker-compose.yaml</span></code> orchestrates specialized containers:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fastfood_trainer</span></code>: Headless container running the RL algorithms safely without GUI dependencies.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fastfood_reporter</span></code>: Evaluates the finalized <code class="docutils literal notranslate"><span class="pre">.zip</span></code> model across multiple random seeds to generate the business report.</p></li>
 </ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="config.html#difficulty-levels">Difficulty Levels</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="deployment.html">Docker Deployment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="deployment.html#training-architecture">Training Architecture</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="optimization.html">Staffing Optimization (Optuna)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="optimization.html#optimization-logic">Optimization Logic</a></li>
-<li class="toctree-l2"><a class="reference internal" href="optimization.html#search-space">Search Space</a></li>
-<li class="toctree-l2"><a class="reference internal" href="optimization.html#running-a-study">Running a Study</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="rl.html">Reinforcement Learning</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="rl.html#observation-space">Observation Space</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl.html#action-space-masking">Action Space &amp; Masking</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl.html#the-stick-and-carrot-reward">The “Stick and Carrot” Reward</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl.html#training-the-agent">Training the Agent</a></li>
-</ul>
-</li>
-</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build and run the training pipeline</span>
+docker<span class="w"> </span>compose<span class="w"> </span>build<span class="w"> </span>--no-cache
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</pre></div>
 </div>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">src</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="src.html">src package</a></li>
-</ul>
-</li>
-</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not run the Pygame visualizer inside the Docker container on macOS due to display driver (ALSA/XDG) limitations. Always run the visualizer locally.</p>
 </div>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="introduction.html" class="btn btn-neutral float-right" title="Project Overview" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="config.html" class="btn btn-neutral float-left" title="Configuration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="optimization.html" class="btn btn-neutral float-right" title="Staffing Optimization (Optuna)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

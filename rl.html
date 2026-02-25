@@ -45,13 +45,14 @@
               <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Project Overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration &amp; Difficulty</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="deployment.html">Docker Deployment</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimization.html">Staffing Optimization (Optuna)</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Reinforcement Learning</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#observation-space">Observation Space</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#action-space">Action Space</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#action-space-masking">Action Space &amp; Masking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#the-stick-and-carrot-reward">The “Stick and Carrot” Reward</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#training-the-tournament">Training the Tournament</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#training-the-agent">Training the Agent</a></li>
 </ul>
 </li>
 </ul>
@@ -97,17 +98,14 @@
 <li><p><strong>Staff State</strong>: Percentage of idle cooks per station.</p></li>
 </ul>
 </section>
-<section id="action-space">
-<h2>Action Space<a class="headerlink" href="#action-space" title="Link to this heading"></a></h2>
+<section id="action-space-masking">
+<h2>Action Space &amp; Masking<a class="headerlink" href="#action-space-masking" title="Link to this heading"></a></h2>
 <p>We use a <code class="docutils literal notranslate"><span class="pre">MultiDiscrete([2,</span> <span class="pre">2,</span> <span class="pre">2])</span></code> space, which allows the agent to simultaneously control all three cooking stations:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">0</span></code>: Do nothing.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">1</span></code>: Command a cook to start a new batch.</p></li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Each index in the array corresponds to a specific station: [Burger, Fries, Ice Cream].</p>
-</div>
+<p>Because this is a DES environment, standard algorithms fail when they send commands to busy workers. We use <strong>Action Masking</strong> to dynamically filter out invalid actions (e.g., masking the “cook burger” action if all burger cooks are currently busy).</p>
 </section>
 <section id="the-stick-and-carrot-reward">
 <h2>The “Stick and Carrot” Reward<a class="headerlink" href="#the-stick-and-carrot-reward" title="Link to this heading"></a></h2>
@@ -117,19 +115,19 @@
 </div>
 <p>To solve this, we implemented a dual-incentive structure:</p>
 <ol class="arabic simple">
-<li><p><strong>The Carrot</strong>: A flat <code class="docutils literal notranslate"><span class="pre">served_bonus</span></code> for every completed order to encourage throughput.</p></li>
-<li><p><strong>The Stick</strong>: A heavy <code class="docutils literal notranslate"><span class="pre">reputation_penalty</span></code> for walk-outs (balking or reneging) that far exceeds the lost dollar value of the meal.</p></li>
+<li><p><strong>The Carrot</strong>: A flat bonus for every completed order to encourage throughput.</p></li>
+<li><p><strong>The Stick</strong>: A heavy penalty for walk-outs (balking or reneging) that far exceeds the lost dollar value of the meal.</p></li>
 </ol>
 </section>
-<section id="training-the-tournament">
-<h2>Training the Tournament<a class="headerlink" href="#training-the-tournament" title="Link to this heading"></a></h2>
-<p>To compare algorithm performance across different architectures, you can run the sequential “Battle Royale” script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>train_all.py
+<section id="training-the-agent">
+<h2>Training the Agent<a class="headerlink" href="#training-the-agent" title="Link to this heading"></a></h2>
+<p>To train the Maskable PPO agent (which natively supports our action masks):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>src.rl.train_ppo
 </pre></div>
 </div>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
-<p><strong>MaskablePPO</strong> typically outperforms DQN and A2C in this environment. Because it utilizes an action mask to “know” when a cook is busy, it avoids wasting timesteps on invalid actions.</p>
+<p>Because we utilize SimPy generators, Python’s <code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> cannot pickle the environment. We strictly use <code class="docutils literal notranslate"><span class="pre">DummyVecEnv</span></code> instead of <code class="docutils literal notranslate"><span class="pre">SubprocVecEnv</span></code> to ensure stable vectorization during training.</p>
 </div>
 </section>
 </section>
