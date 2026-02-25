@@ -7,7 +7,7 @@
 
 This project is a high-fidelity **Discrete-Event Simulation (DES)** of a high-volume fast-food kitchen built with **SimPy**. It features an autonomous staffing and inventory optimization engine powered by **Optuna**, and a custom **Reinforcement Learning (RL)** environment compatible with **Gymnasium** to train AI kitchen managers using Maskable PPO.
 
-📖 **Read the full technical breakdown on Medium:** [Optimizing Production-Line Management using Python](https://medium.com/@your_username/your-article-link)
+📖 **Read the full technical breakdown on Medium:** [Optimizing Production-Line Management using Python](https://medium.com/@maxime.szymanski/optimizing-production-line-management-using-python-502843113e4a)
 
 ## 🎥 Trained RL Agent Performance
 ![Trained Agent Visualization](videos/video.gif)
